@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/GeometryDashPlace.Web/GeometryDashPlace.Web.csproj" />
+  </Folder>
+</Solution>
