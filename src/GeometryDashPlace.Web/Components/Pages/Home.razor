@@ -4,47 +4,6 @@
 
 <main class="editor-page">
     <h1 class="visually-hidden">Geometry Dash Place</h1>
-
-    <canvas class="editor-grid"
-            aria-label="Grille de l'éditeur Geometry Dash"
-            tabindex="0"></canvas>
-
-    <section class="level-timeline" aria-label="Navigation rapide dans le niveau">
-        <div class="timeline-track"
-             data-editor-timeline
-             role="slider"
-             tabindex="0"
-             aria-label="Position dans le niveau"
-             aria-valuemin="0"
-             aria-valuemax="100"
-             aria-valuenow="0">
-            <img class="timeline-frame"
-                 src="/assets/ui/editor/timeline/timeline-track.png"
-                 alt=""
-                 draggable="false" />
-            <span class="timeline-handle" data-timeline-handle aria-hidden="true">
-                <img src="/assets/ui/editor/timeline/timeline-handle.png"
-                     alt=""
-                     draggable="false" />
-            </span>
-        </div>
-    </section>
-
-    <section class="zoom-controls" aria-label="Contrôles du zoom">
-        <button type="button" data-editor-action="zoom-in" title="Zoomer" aria-label="Zoomer">
-            <img src="/assets/ui/zoom/zoom-in.png" alt="" draggable="false" />
-        </button>
-        <button type="button" data-editor-action="zoom-out" title="Dézoomer" aria-label="Dézoomer">
-            <img src="/assets/ui/zoom/zoom-out.png" alt="" draggable="false" />
-        </button>
-    </section>
-
-    <aside class="editor-status" aria-live="polite">
-        <strong data-coordinate-value>Case —</strong>
-        <span data-zoom-value>Zoom 100 %</span>
-    </aside>
-
-    <p class="editor-hint" data-editor-hint>
-        Cliquer-glisser pour se déplacer · Molette ou boutons pour zoomer
-    </p>
+    <EditorViewport />
+    <EditorToolbar />
 </main>

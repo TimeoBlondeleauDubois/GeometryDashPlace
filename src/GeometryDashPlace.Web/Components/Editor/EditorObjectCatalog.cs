@@ -1,0 +1,52 @@
+namespace GeometryDashPlace.Web.Components.Editor;
+
+public static class EditorObjectCatalog
+{
+    public static IReadOnlyList<EditorObjectDefinition> All { get; } =
+    [
+        new("block", "Bloc", "/assets/objects/blocks/block.png"),
+        new("line_block", "Bloc ligne", "/assets/objects/blocks/block-line.png"),
+        new("corner_block", "Bloc angle", "/assets/objects/blocks/block-corner.png"),
+        new("dot_block", "Bloc point", "/assets/objects/blocks/block-dot.png"),
+        new("deco_block", "Bloc décoration", "/assets/objects/blocks/block-decoration.png"),
+        new("top_block", "Dessus de bloc", "/assets/objects/blocks/block-top.png"),
+        new("column_block", "Colonne", "/assets/objects/blocks/block-column.png"),
+        new("half_block", "Demi-bloc", "/assets/objects/blocks/block-half.png", 8),
+        new("spike", "Pique", "/assets/objects/hazards/spike.png"),
+        new("ground_spike", "Pique au sol", "/assets/objects/hazards/spike-ground.png", -12.5),
+        new("flat_spike", "Pique plat", "/assets/objects/hazards/spike-flat.png", -9),
+        new("blue_portal", "Portail bleu", "/assets/objects/portals/portal-gravity-reversed.png"),
+        new("yellow_portal", "Portail jaune", "/assets/objects/portals/portal-gravity-normal.png"),
+        new("cube_portal", "Portail cube", "/assets/objects/portals/portal-cube.png"),
+        new("ship_portal", "Portail vaisseau", "/assets/objects/portals/portal-ship.png"),
+        new("ball_portal", "Portail boule", "/assets/objects/portals/portal-ball.png"),
+        new("ufo_portal", "Portail UFO", "/assets/objects/portals/portal-ufo.png"),
+        new("wave_portal", "Portail wave", "/assets/objects/portals/portal-wave.png"),
+        new("robot_portal", "Portail robot", "/assets/objects/portals/portal-robot.png"),
+        new("spider_portal", "Portail araignée", "/assets/objects/portals/portal-spider.png"),
+        new("swing_portal", "Portail swing", "/assets/objects/portals/portal-swing.png"),
+        new("mini_portal", "Portail mini", "/assets/objects/portals/portal-size-mini.png"),
+        new("normal_size_portal", "Portail taille normale", "/assets/objects/portals/portal-size-normal.png"),
+        new("yellow_pad", "Pad jaune", "/assets/objects/pads/pad-jump-yellow.png", -13),
+        new("pink_pad", "Pad rose", "/assets/objects/pads/pad-jump-pink.png", -13),
+        new("red_pad", "Pad rouge", "/assets/objects/pads/pad-jump-red.png", -13),
+        new("blue_gravity_pad", "Pad gravité bleu", "/assets/objects/pads/pad-gravity-blue.png", -13),
+        new("purple_spider_pad", "Pad araignée violet", "/assets/objects/pads/pad-spider-purple.png", -13),
+        new("yellow_orb", "Orbe jaune", "/assets/objects/orbs/orb-jump-yellow.png"),
+        new("pink_orb", "Orbe rose", "/assets/objects/orbs/orb-jump-pink.png"),
+        new("red_orb", "Orbe rouge", "/assets/objects/orbs/orb-jump-red.png"),
+        new("blue_gravity_orb", "Orbe gravité bleu", "/assets/objects/orbs/orb-gravity-blue.png"),
+        new("green_gravity_orb", "Orbe gravité vert", "/assets/objects/orbs/orb-gravity-green.png"),
+        new("black_orb", "Orbe noir", "/assets/objects/orbs/orb-drop-black.png"),
+        new("green_dash_orb", "Orbe dash vert", "/assets/objects/orbs/orb-dash-green.png"),
+        new("pink_dash_orb", "Orbe dash rose", "/assets/objects/orbs/orb-dash-pink.png"),
+        new("purple_spider_orb", "Orbe araignée violet", "/assets/objects/orbs/orb-spider-purple.png"),
+        new("slow_speed", "Vitesse lente", "/assets/objects/speeds/speed-slow.png"),
+        new("normal_speed", "Vitesse normale", "/assets/objects/speeds/speed-normal.png"),
+        new("fast_speed", "Vitesse rapide", "/assets/objects/speeds/speed-fast.png"),
+        new("very_fast_speed", "Vitesse très rapide", "/assets/objects/speeds/speed-very-fast.png"),
+        new("extremely_fast_speed", "Vitesse extrêmement rapide", "/assets/objects/speeds/speed-extremely-fast.png"),
+        new("bg_color_trigger", "Trigger couleur BG", "/assets/objects/triggers/trigger-color.png", CanRotate: false, Label: "BG"),
+        new("g1_color_trigger", "Trigger couleur G1", "/assets/objects/triggers/trigger-color.png", CanRotate: false, Label: "G1")
+    ];
+}

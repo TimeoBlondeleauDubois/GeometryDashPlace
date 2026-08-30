@@ -1,0 +1,49 @@
+<section class="edit-panel"
+         data-editor-panel="edit"
+         data-placement-controls
+         aria-label="Position de l’objet en attente"
+         hidden>
+    <span class="pending-position" data-pending-position>Sélectionne une case</span>
+    <div class="movement-buttons">
+        <button type="button" data-move-x="0" data-move-y="1" aria-label="Déplacer d’une case vers le haut" disabled>
+            <img src="/assets/ui/editor/movement/move-up.png" alt="" draggable="false" />
+        </button>
+        <button type="button" data-move-x="0" data-move-y="-1" aria-label="Déplacer d’une case vers le bas" disabled>
+            <img src="/assets/ui/editor/movement/move-down.png" alt="" draggable="false" />
+        </button>
+        <button type="button" data-move-x="-1" data-move-y="0" aria-label="Déplacer d’une case à gauche" disabled>
+            <img src="/assets/ui/editor/movement/move-left.png" alt="" draggable="false" />
+        </button>
+        <button type="button" data-move-x="1" data-move-y="0" aria-label="Déplacer d’une case à droite" disabled>
+            <img src="/assets/ui/editor/movement/move-right.png" alt="" draggable="false" />
+        </button>
+        <button type="button" data-move-x="0" data-move-y="5" aria-label="Déplacer de cinq cases vers le haut" disabled>
+            <img src="/assets/ui/editor/movement/move-up-double.png" alt="" draggable="false" />
+        </button>
+        <button type="button" data-move-x="0" data-move-y="-5" aria-label="Déplacer de cinq cases vers le bas" disabled>
+            <img src="/assets/ui/editor/movement/move-down-double.png" alt="" draggable="false" />
+        </button>
+        <button type="button" data-move-x="-5" data-move-y="0" aria-label="Déplacer de cinq cases à gauche" disabled>
+            <img src="/assets/ui/editor/movement/move-left-double.png" alt="" draggable="false" />
+        </button>
+        <button type="button" data-move-x="5" data-move-y="0" aria-label="Déplacer de cinq cases à droite" disabled>
+            <img src="/assets/ui/editor/movement/move-right-double.png" alt="" draggable="false" />
+        </button>
+        <button class="rotate-object-button"
+                type="button"
+                data-editor-action="rotate-object"
+                data-rotate-step="-90"
+                title="Tourner de 90° vers la gauche"
+                aria-label="Tourner l’objet de 90 degrés vers la gauche">
+            <img src="/assets/ui/editor/transforms/rotate-counterclockwise.png" alt="" draggable="false" />
+        </button>
+        <button class="rotate-object-button"
+                type="button"
+                data-editor-action="rotate-object"
+                data-rotate-step="90"
+                title="Tourner de 90° vers la droite"
+                aria-label="Tourner l’objet de 90 degrés vers la droite">
+            <img src="/assets/ui/editor/transforms/rotate-clockwise.png" alt="" draggable="false" />
+        </button>
+    </div>
+</section>

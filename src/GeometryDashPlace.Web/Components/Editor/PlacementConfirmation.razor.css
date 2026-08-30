@@ -1,0 +1,87 @@
+.confirm-placement-area {
+    position: absolute;
+    z-index: 4;
+    top: 50%;
+    right: clamp(12px, 3vw, 54px);
+    display: grid;
+    min-width: clamp(70px, 6.2vw, 88px);
+    padding-left: clamp(14px, 2vw, 28px);
+    border-left: 2px solid rgb(255 255 255 / 28%);
+    place-items: center;
+    gap: 4px;
+    transform: translateY(-50%);
+}
+
+.confirm-placement-button {
+    box-sizing: border-box;
+    display: grid;
+    width: clamp(58px, 5.4vw, 76px);
+    height: clamp(58px, 5.4vw, 76px);
+    padding: 0;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    background: linear-gradient(#b2f445, #68ce16);
+    box-shadow: inset 0 0 0 3px #172013, 0 3px 0 rgb(0 0 0 / 58%);
+    cursor: pointer;
+    place-items: center;
+    transition: transform 70ms ease, filter 70ms ease;
+}
+
+.confirm-placement-button:hover:not(:disabled) {
+    transform: scale(1.07);
+    filter: brightness(1.12);
+}
+
+.confirm-placement-button:active:not(:disabled) {
+    transform: scale(0.93);
+}
+
+.confirm-placement-button:focus-visible {
+    outline: 3px solid #fff36a;
+    outline-offset: 3px;
+}
+
+.confirm-placement-button:disabled {
+    cursor: default;
+    filter: grayscale(0.78) brightness(0.62);
+    opacity: 0.62;
+}
+
+.confirm-placement-button span {
+    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 2rem;
+    font-weight: 1000;
+    line-height: 1;
+    text-shadow: 2px 2px 0 #1c6b09, -1px -1px 0 #1c6b09;
+}
+
+.confirm-placement-area small {
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 1000;
+    letter-spacing: 0.04em;
+    text-shadow: 1px 2px 0 #000;
+}
+
+@media (max-width: 760px) {
+    .confirm-placement-area {
+        right: 5px;
+        min-width: 48px;
+        padding-left: 7px;
+        gap: 2px;
+    }
+
+    .confirm-placement-button {
+        width: 44px;
+        height: 44px;
+    }
+
+    .confirm-placement-button span {
+        font-size: 1.55rem;
+    }
+
+    .confirm-placement-area small {
+        font-size: 0.52rem;
+    }
+}

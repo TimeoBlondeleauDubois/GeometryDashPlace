@@ -1,0 +1,60 @@
+.object-toolbar {
+    position: absolute;
+    z-index: 6;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    height: var(--toolbar-height);
+    padding: clamp(7px, 1vh, 11px) clamp(10px, 2vw, 30px) 15px;
+    border-top: 3px solid #f8f8f8;
+    background:
+        linear-gradient(rgb(8 9 12 / 8%), rgb(8 9 12 / 18%)),
+        url('/assets/ui/editor/toolbar/toolbar-background.png') repeat-x center / auto 100%;
+    box-shadow: 0 -5px 0 rgb(0 0 0 / 55%), 0 -12px 24px rgb(0 0 0 / 24%);
+}
+
+.palette-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 12px;
+    min-height: 24px;
+    text-align: center;
+    text-shadow: 1px 2px 0 #000;
+}
+
+.palette-heading strong {
+    font-size: clamp(0.82rem, 1.2vw, 1rem);
+}
+
+.palette-heading small {
+    color: #ffec55;
+    font-weight: 700;
+}
+
+.palette-pages {
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    min-height: 14px;
+    color: rgb(255 255 255 / 62%);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 14px;
+    text-align: center;
+    text-shadow: 1px 1px 0 #000;
+    transform: translateX(-50%);
+}
+
+@media (max-width: 760px) {
+    .object-toolbar {
+        padding-inline: 5px;
+    }
+
+    .palette-heading {
+        min-height: 21px;
+    }
+}
