@@ -1,0 +1,95 @@
+<section class="color-trigger-settings"
+         data-color-trigger-settings
+         aria-label="Paramètres du trigger couleur"
+         hidden>
+    <strong>TRIGGER COULEUR</strong>
+
+    <div class="color-target-field">
+        <span>Cible</span>
+        <div class="color-target-options">
+            <button class="is-active"
+                    type="button"
+                    data-color-trigger-target="background"
+                    aria-pressed="true">BG</button>
+            <button type="button"
+                    data-color-trigger-target="ground"
+                    aria-pressed="false">GROUND</button>
+        </div>
+    </div>
+
+    <div class="color-value-field">
+        <span>Couleur</span>
+
+        <div class="gd-color-picker"
+             data-color-wheel
+             style="--picker-color: #ff0000; --selected-color: #ffffff;">
+            <div class="hue-wheel-surface"
+                 data-color-wheel-hue
+                 role="slider"
+                 tabindex="0"
+                 aria-label="Teinte"
+                 aria-valuemin="0"
+                 aria-valuemax="359"
+                 aria-valuenow="0">
+                <img class="hue-wheel-image"
+                     src="/assets/ui/color-picker/wheel/hue-wheel.png"
+                     alt=""
+                     draggable="false" />
+                <img class="picker-handle hue-picker-handle"
+                     data-color-wheel-hue-handle
+                     src="/assets/ui/color-picker/wheel/selection-handle.png"
+                     alt=""
+                     draggable="false" />
+
+                <div class="color-plane"
+                     data-color-wheel-plane
+                     role="application"
+                     tabindex="0"
+                     aria-label="Saturation et luminosité">
+                    <span class="color-plane-base" aria-hidden="true"></span>
+                    <img class="color-plane-layer"
+                         src="/assets/ui/color-picker/wheel/color-shading.png"
+                         alt=""
+                         draggable="false" />
+                    <img class="color-plane-layer"
+                         src="/assets/ui/color-picker/wheel/color-overlay.png"
+                         alt=""
+                         draggable="false" />
+                    <img class="picker-handle color-picker-handle"
+                         data-color-wheel-plane-handle
+                         src="/assets/ui/color-picker/wheel/selection-handle.png"
+                         alt=""
+                         draggable="false" />
+                </div>
+            </div>
+        </div>
+
+        <div class="color-picker-readout">
+            <span class="selected-color-swatch" aria-hidden="true"></span>
+            <input class="color-hex-input"
+                   type="text"
+                   value="#FFFFFF"
+                   maxlength="7"
+                   autocomplete="off"
+                   spellcheck="false"
+                   data-color-trigger-color-value
+                   aria-label="Hex color code" />
+        </div>
+
+        <input type="hidden"
+               value="#ffffff"
+               data-color-trigger-color />
+    </div>
+
+    <label class="duration-field">
+        <span>Durée</span>
+        <input type="number"
+               value="0.2"
+               min="0"
+               step="0.1"
+               inputmode="decimal"
+               data-color-trigger-duration
+               aria-label="Durée du changement de couleur en secondes" />
+        <small>seconde(s)</small>
+    </label>
+</section>

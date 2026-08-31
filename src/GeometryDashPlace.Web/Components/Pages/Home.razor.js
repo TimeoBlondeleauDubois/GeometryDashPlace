@@ -51,6 +51,13 @@ export function initializeEditorGrid(root) {
     const pendingPosition = root.querySelector("[data-pending-position]");
     const movementButtons = [...root.querySelectorAll("[data-move-x][data-move-y]")];
     const confirmPlacementButton = root.querySelector('[data-editor-action="confirm-placement"]');
+    const colorTriggerSettings = root.querySelector("[data-color-trigger-settings]");
+    const colorWheelRoot = root.querySelector("[data-color-wheel]");
+    const colorTriggerTargetButtons = [...root.querySelectorAll("[data-color-trigger-target]")];
+    const colorTriggerInput = root.querySelector("[data-color-trigger-color]");
+    const colorTriggerValue = root.querySelector("[data-color-trigger-color-value]");
+    const colorTriggerDurationInput = root.querySelector("[data-color-trigger-duration]");
+    const colorWheel = createColorWheel(colorWheelRoot, colorTriggerInput);
     const objectCatalog = readObjectCatalog(objectButtons);
 
     const state = {
@@ -181,8 +188,9 @@ export function initializeEditorGrid(root) {
     }
 
     function drawPlacedObject(object, opacity = 1) {
-        const definition = objectCatalog[object.type];
-        const image = objectImages.get(object.type);
+        const catalogType = catalogTypeFor(object.type);
+        const definition = objectCatalog[catalogType];
+        const image = objectImages.get(catalogType);
 
         if (!definition || !image?.complete || !image.naturalWidth) {
             return;
@@ -372,6 +380,31 @@ export function initializeEditorGrid(root) {
             button.disabled = !pending || nextX < 0 || nextX >= COLUMN_COUNT ||
                 nextY < 0 || nextY >= ROW_COUNT;
         }
+
+        updateColorTriggerSettings();
+    }
+
+    function updateColorTriggerSettings() {
+        const pending = state.pendingObject;
+        const isColorTrigger = pending?.type === COLOR_TRIGGER_TYPE;
+        colorTriggerSettings.hidden = !isColorTrigger;
+
+        if (!isColorTrigger) {
+            return;
+        }
+
+        for (const button of colorTriggerTargetButtons) {
+            const isActive = button.dataset.colorTriggerTarget === pending.colorTarget;
+            button.classList.toggle("is-active", isActive);
+            button.setAttribute("aria-pressed", String(isActive));
+        }
+
+        const color = rgbToHex(pending.red, pending.green, pending.blue);
+        colorTriggerInput.value = color.toLowerCase();
+        colorWheel.setColor(color);
+        colorTriggerValue.value = color;
+        colorTriggerValue.classList.remove("is-invalid");
+        colorTriggerDurationInput.value = String(pending.duration);
     }
 
     function renderPalette() {
@@ -414,8 +447,11 @@ export function initializeEditorGrid(root) {
         state.selectedRotation = 0;
 
         if (state.pendingObject) {
-            state.pendingObject.type = state.selectedObjectType;
-            state.pendingObject.rotation = 0;
+            state.pendingObject = createPendingObject(
+                state.selectedObjectType,
+                state.pendingObject.x,
+                state.pendingObject.y,
+                0);
         }
 
         for (const objectButton of objectButtons) {
@@ -429,12 +465,11 @@ export function initializeEditorGrid(root) {
     }
 
     function preparePlacement(cell) {
-        state.pendingObject = {
-            type: state.selectedObjectType,
-            x: cell.x,
-            y: cell.y,
-            rotation: state.selectedRotation
-        };
+        state.pendingObject = createPendingObject(
+            state.selectedObjectType,
+            cell.x,
+            cell.y,
+            state.selectedRotation);
         state.selectedCell = { x: cell.x, y: cell.y };
 
         setEditorTab("edit");
@@ -469,8 +504,11 @@ export function initializeEditorGrid(root) {
             return;
         }
 
-        const confirmedObject = { ...state.pendingObject };
+        const confirmedObject = createConfirmedObject(state.pendingObject);
         state.objects.set(cellKey(confirmedObject), confirmedObject);
+        root.dispatchEvent(new CustomEvent("editor:object-placed", {
+            detail: { ...confirmedObject }
+        }));
         state.pendingObject = null;
         state.selectedCell = null;
         setEditorTab("build");
@@ -497,6 +535,63 @@ export function initializeEditorGrid(root) {
 
     function onObjectButtonClick(event) {
         selectObject(event.currentTarget);
+    }
+
+    function onColorTriggerTargetClick(event) {
+        if (state.pendingObject?.type !== COLOR_TRIGGER_TYPE) {
+            return;
+        }
+
+        state.pendingObject.colorTarget = event.currentTarget.dataset.colorTriggerTarget;
+        updateColorTriggerSettings();
+    }
+
+    function onColorTriggerInput(event) {
+        if (state.pendingObject?.type !== COLOR_TRIGGER_TYPE) {
+            return;
+        }
+
+        Object.assign(state.pendingObject, hexToRgb(event.currentTarget.value));
+        updateColorTriggerSettings();
+    }
+
+    function normalizedHexColor(value) {
+        const match = /^#?([0-9a-f]{6})$/i.exec(value.trim());
+        return match ? `#${match[1].toUpperCase()}` : null;
+    }
+
+    function onColorTriggerHexInput(event) {
+        const hexColor = normalizedHexColor(event.currentTarget.value);
+        event.currentTarget.classList.toggle("is-invalid", !hexColor);
+
+        if (!hexColor || state.pendingObject?.type !== COLOR_TRIGGER_TYPE) {
+            return;
+        }
+
+        colorTriggerInput.value = hexColor;
+        colorTriggerInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+
+    function onColorTriggerHexBlur() {
+        updateColorTriggerSettings();
+    }
+
+    function onColorTriggerHexKeyDown(event) {
+        if (event.key === "Enter") {
+            event.currentTarget.blur();
+            event.preventDefault();
+        }
+    }
+
+    function onColorTriggerDurationInput(event) {
+        if (state.pendingObject?.type !== COLOR_TRIGGER_TYPE) {
+            return;
+        }
+
+        const duration = Number.parseFloat(event.currentTarget.value);
+        if (Number.isFinite(duration)) {
+            state.pendingObject.duration = Math.max(0, duration);
+        }
     }
 
     function showPreviousPalettePage() {
@@ -706,6 +801,12 @@ export function initializeEditorGrid(root) {
     rotateObjectButtons.forEach(button => button.addEventListener("click", rotateObject));
     movementButtons.forEach(button => button.addEventListener("click", onMoveButtonClick));
     confirmPlacementButton.addEventListener("click", confirmPlacement);
+    colorTriggerTargetButtons.forEach(button => button.addEventListener("click", onColorTriggerTargetClick));
+    colorTriggerInput.addEventListener("input", onColorTriggerInput);
+    colorTriggerValue.addEventListener("input", onColorTriggerHexInput);
+    colorTriggerValue.addEventListener("blur", onColorTriggerHexBlur);
+    colorTriggerValue.addEventListener("keydown", onColorTriggerHexKeyDown);
+    colorTriggerDurationInput.addEventListener("input", onColorTriggerDurationInput);
     timelineHandle.addEventListener("pointerdown", onTimelinePointerDown);
     timelineHandle.addEventListener("pointermove", onTimelinePointerMove);
     timelineHandle.addEventListener("pointerup", finishTimelinePointer);
@@ -737,6 +838,13 @@ export function initializeEditorGrid(root) {
             rotateObjectButtons.forEach(button => button.removeEventListener("click", rotateObject));
             movementButtons.forEach(button => button.removeEventListener("click", onMoveButtonClick));
             confirmPlacementButton.removeEventListener("click", confirmPlacement);
+            colorTriggerTargetButtons.forEach(button => button.removeEventListener("click", onColorTriggerTargetClick));
+            colorTriggerInput.removeEventListener("input", onColorTriggerInput);
+            colorTriggerValue.removeEventListener("input", onColorTriggerHexInput);
+            colorTriggerValue.removeEventListener("blur", onColorTriggerHexBlur);
+            colorTriggerValue.removeEventListener("keydown", onColorTriggerHexKeyDown);
+            colorTriggerDurationInput.removeEventListener("input", onColorTriggerDurationInput);
+            colorWheel.dispose();
             timelineHandle.removeEventListener("pointerdown", onTimelinePointerDown);
             timelineHandle.removeEventListener("pointermove", onTimelinePointerMove);
             timelineHandle.removeEventListener("pointerup", finishTimelinePointer);
