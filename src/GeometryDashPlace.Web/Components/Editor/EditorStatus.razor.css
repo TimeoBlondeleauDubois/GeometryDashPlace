@@ -24,29 +24,6 @@
     font-size: 0.78rem;
 }
 
-.editor-hint {
-    position: absolute;
-    z-index: 4;
-    bottom: calc(var(--toolbar-height) + 12px);
-    left: 50%;
-    margin: 0;
-    padding: 8px 13px;
-    border-radius: 8px;
-    background: rgb(4 14 30 / 72%);
-    box-shadow: 0 2px 0 rgb(0 0 0 / 35%);
-    color: rgb(255 255 255 / 88%);
-    font-size: clamp(0.72rem, 1.4vw, 0.9rem);
-    text-shadow: 1px 1px 0 #000;
-    transform: translateX(-50%);
-    transition: opacity 220ms ease;
-    pointer-events: none;
-    white-space: nowrap;
-}
-
-.editor-hint.is-hidden {
-    opacity: 0;
-}
-
 @media (max-width: 760px) {
     .editor-status {
         top: 10px;
@@ -55,11 +32,5 @@
 
     .editor-status span:last-child {
         display: none;
-    }
-
-    .editor-hint {
-        max-width: calc(100vw - 24px);
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
 }

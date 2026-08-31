@@ -21,7 +21,6 @@ export function initializeEditorGrid(root) {
     const coordinateValue = root.querySelector("[data-coordinate-value]");
     const zoomValue = root.querySelector("[data-zoom-value]");
     const objectCountValue = root.querySelector("[data-object-count]");
-    const hint = root.querySelector("[data-editor-hint]");
     const zoomInButton = root.querySelector('[data-editor-action="zoom-in"]');
     const zoomOutButton = root.querySelector('[data-editor-action="zoom-out"]');
     const timeline = root.querySelector("[data-editor-timeline]");
@@ -408,7 +407,6 @@ export function initializeEditorGrid(root) {
         updateToolStatus();
         updatePlacementControls();
         setEditorTab("build");
-        hint.classList.add("is-hidden");
         requestDraw();
     }
 
@@ -544,7 +542,6 @@ export function initializeEditorGrid(root) {
         state.pointerY = position.y;
         state.dragDistance = 0;
         canvas.setPointerCapture(event.pointerId);
-        hint.classList.add("is-hidden");
         event.preventDefault();
     }
 
@@ -623,7 +620,6 @@ export function initializeEditorGrid(root) {
         state.timelinePointerX = event.clientX;
         state.timelineStartProgress = cameraProgress();
         timelineHandle.setPointerCapture(event.pointerId);
-        hint.classList.add("is-hidden");
         event.preventDefault();
     }
 

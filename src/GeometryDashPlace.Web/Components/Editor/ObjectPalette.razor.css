@@ -137,7 +137,7 @@
 }
 
 .palette-navigation-next img {
-    transform: rotate(180deg);
+    transform: scaleX(-1);
 }
 
 .palette-navigation:hover:not(:disabled) {

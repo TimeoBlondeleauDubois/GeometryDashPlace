@@ -1,4 +1,13 @@
 <nav class="editor-mode-tabs" aria-label="Mode de l’éditeur">
-    <button class="is-active" type="button" data-editor-tab="build" aria-pressed="true">CRÉER</button>
-    <button type="button" data-editor-tab="edit" aria-pressed="false">ÉDITER</button>
+    <button class="is-active" type="button" data-editor-tab="build" aria-pressed="true">
+        <span class="mode-decoration mode-decoration-build" aria-hidden="true"></span>
+        <span class="mode-label">CRÉER</span>
+    </button>
+    <button type="button" data-editor-tab="edit" aria-pressed="false">
+        <img class="mode-decoration mode-decoration-edit"
+             src="/assets/ui/editor/modes/edit-tools.png"
+             alt=""
+             aria-hidden="true" />
+        <span class="mode-label">ÉDITER</span>
+    </button>
 </nav>
