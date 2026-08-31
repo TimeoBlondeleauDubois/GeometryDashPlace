@@ -1,11 +1,24 @@
 import { EDITOR_CONFIG } from "/js/editor/editor-config.js";
 import { readObjectCatalog } from "/js/editor/object-catalog.js";
+import { drawClassicScene, loadSceneTexture } from "/js/editor/scene-textures.js";
+import { createColorWheel } from "/js/editor/color-wheel.js";
+import {
+    COLOR_TRIGGER_TYPE,
+    catalogTypeFor,
+    createConfirmedObject,
+    createPendingObject,
+    hexToRgb,
+    rgbToHex
+} from "/js/editor/color-trigger.js";
 
 const {
     columnCount: COLUMN_COUNT,
     rowCount: ROW_COUNT,
     minZoom: MIN_ZOOM,
     maxZoom: MAX_ZOOM,
+    groundTileCells: GROUND_TILE_CELLS,
+    backgroundTexturePath: BACKGROUND_TEXTURE_PATH,
+    groundTexturePath: GROUND_TEXTURE_PATH,
     objectTextureUnit: OBJECT_TEXTURE_UNIT,
     palettePageSize: PALETTE_PAGE_SIZE
 } = EDITOR_CONFIG;
@@ -66,6 +79,8 @@ export function initializeEditorGrid(root) {
     };
 
     const objectImages = new Map();
+    const backgroundImage = loadSceneTexture(BACKGROUND_TEXTURE_PATH, requestDraw);
+    const groundImage = loadSceneTexture(GROUND_TEXTURE_PATH, requestDraw);
 
     for (const [type, definition] of Object.entries(objectCatalog)) {
         const image = new Image();
@@ -76,6 +91,10 @@ export function initializeEditorGrid(root) {
 
     function cellSize() {
         return state.baseCellSize * state.zoom;
+    }
+
+    function groundBaseline() {
+        return state.height - GROUND_TILE_CELLS * state.baseCellSize;
     }
 
     function axisOffset(value, totalCells, visibleCells) {
@@ -89,7 +108,10 @@ export function initializeEditorGrid(root) {
     function clampCamera() {
         const size = cellSize();
         state.offsetX = axisOffset(state.offsetX, COLUMN_COUNT, state.width / size);
-        state.offsetY = axisOffset(state.offsetY, ROW_COUNT, state.height / size);
+        const visibleRows = groundBaseline() / size;
+        state.offsetY = visibleRows >= ROW_COUNT
+            ? 0
+            : Math.min(Math.max(state.offsetY, 0), ROW_COUNT - visibleRows);
     }
 
     function horizontalTravelCells() {
@@ -123,13 +145,13 @@ export function initializeEditorGrid(root) {
     }
 
     function gridToScreenY(y) {
-        return state.height - (y - state.offsetY) * cellSize();
+        return groundBaseline() - (y - state.offsetY) * cellSize();
     }
 
     function screenToCell(x, y) {
         const size = cellSize();
         const column = Math.floor(state.offsetX + x / size);
-        const row = Math.floor(state.offsetY + (state.height - y) / size);
+        const row = Math.floor(state.offsetY + (groundBaseline() - y) / size);
 
         if (column < 0 || column >= COLUMN_COUNT || row < 0 || row >= ROW_COUNT) {
             return null;
@@ -225,45 +247,32 @@ export function initializeEditorGrid(root) {
         state.frame = 0;
         const size = cellSize();
 
-        context.clearRect(0, 0, state.width, state.height);
-        context.fillStyle = "#0a1930";
-        context.fillRect(0, 0, state.width, state.height);
-
         const gridLeft = gridToScreenX(0);
         const gridRight = gridToScreenX(COLUMN_COUNT);
         const gridTop = gridToScreenY(ROW_COUNT);
         const gridBottom = gridToScreenY(0);
+        const sceneGroundTop = Math.min(Math.max(gridBottom, 0), state.height);
+
+        context.clearRect(0, 0, state.width, state.height);
+        drawClassicScene(context, {
+            width: state.width,
+            height: state.height,
+            groundTop: sceneGroundTop,
+            groundTileSize: GROUND_TILE_CELLS * size,
+            worldOffsetPixels: state.offsetX * size,
+            backgroundImage,
+            groundImage
+        });
+
         const visibleLeft = Math.max(0, gridLeft);
         const visibleRight = Math.min(state.width, gridRight);
         const visibleTop = Math.max(0, gridTop);
         const visibleBottom = Math.min(state.height, gridBottom);
 
-        if (visibleRight > visibleLeft && visibleBottom > visibleTop) {
-            const blueGradient = context.createLinearGradient(0, visibleTop, 0, visibleBottom);
-            blueGradient.addColorStop(0, "#215ca8");
-            blueGradient.addColorStop(0.55, "#287bd8");
-            blueGradient.addColorStop(1, "#2074cf");
-            context.fillStyle = blueGradient;
-            context.fillRect(
-                visibleLeft,
-                visibleTop,
-                visibleRight - visibleLeft,
-                visibleBottom - visibleTop);
-        }
-
         const firstColumn = Math.max(0, Math.floor(state.offsetX));
         const lastColumn = Math.min(COLUMN_COUNT, Math.ceil(state.offsetX + state.width / size));
         const firstRow = Math.max(0, Math.floor(state.offsetY));
-        const lastRow = Math.min(ROW_COUNT, Math.ceil(state.offsetY + state.height / size));
-
-        drawPlacedObjects(firstColumn, lastColumn, firstRow, lastRow);
-
-        if (state.pendingObject) {
-            drawPlacedObject(state.pendingObject, 0.62);
-        }
-
-        drawCell(state.hoverCell, "rgba(111, 196, 255, 0.20)", "rgba(174, 228, 255, 0.9)", 2);
-        drawPendingCell(state.selectedCell);
+        const lastRow = Math.min(ROW_COUNT, Math.ceil(state.offsetY + groundBaseline() / size));
 
         context.beginPath();
         context.strokeStyle = "rgba(5, 20, 38, 0.72)";
@@ -297,6 +306,15 @@ export function initializeEditorGrid(root) {
         context.moveTo(visibleLeft, Math.round(gridToScreenY(0)) + 0.5);
         context.lineTo(visibleRight, Math.round(gridToScreenY(0)) + 0.5);
         context.stroke();
+
+        drawPlacedObjects(firstColumn, lastColumn, firstRow, lastRow);
+
+        if (state.pendingObject) {
+            drawPlacedObject(state.pendingObject, 0.62);
+        }
+
+        drawCell(state.hoverCell, "rgba(111, 196, 255, 0.20)", "rgba(174, 228, 255, 0.9)", 2);
+        drawPendingCell(state.selectedCell);
     }
 
     function requestDraw() {
@@ -491,16 +509,16 @@ export function initializeEditorGrid(root) {
         renderPalette();
     }
 
-    function setZoom(nextZoom, anchorX = state.width / 2, anchorY = state.height / 2) {
+    function setZoom(nextZoom, anchorX = state.width / 2) {
         const previousSize = cellSize();
         const worldX = state.offsetX + anchorX / previousSize;
-        const worldY = state.offsetY + (state.height - anchorY) / previousSize;
+        const groundScreenY = gridToScreenY(0);
 
         state.zoom = Math.min(Math.max(nextZoom, MIN_ZOOM), MAX_ZOOM);
 
         const nextSize = cellSize();
         state.offsetX = worldX - anchorX / nextSize;
-        state.offsetY = worldY - (state.height - anchorY) / nextSize;
+        state.offsetY = (groundScreenY - groundBaseline()) / nextSize;
         clampCamera();
         updateStatus();
         updateTimeline();
@@ -512,7 +530,7 @@ export function initializeEditorGrid(root) {
         const devicePixelRatio = window.devicePixelRatio || 1;
         state.width = Math.max(1, bounds.width);
         state.height = Math.max(1, bounds.height);
-        state.baseCellSize = state.height / ROW_COUNT;
+        state.baseCellSize = state.height / (ROW_COUNT + GROUND_TILE_CELLS);
 
         canvas.width = Math.round(state.width * devicePixelRatio);
         canvas.height = Math.round(state.height * devicePixelRatio);
@@ -600,7 +618,7 @@ export function initializeEditorGrid(root) {
         event.preventDefault();
         const position = pointerPosition(event);
         const factor = Math.exp(-event.deltaY * 0.0015);
-        setZoom(state.zoom * factor, position.x, position.y);
+        setZoom(state.zoom * factor, position.x);
     }
 
     function zoomIn() {
