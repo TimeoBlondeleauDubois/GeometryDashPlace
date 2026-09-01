@@ -1,0 +1,77 @@
+.delete-selection-area {
+    display: contents;
+}
+
+.delete-selection-button {
+    appearance: none;
+    box-sizing: border-box;
+    position: relative;
+    display: grid;
+    width: clamp(76px, 6.8vw, 108px);
+    aspect-ratio: 1;
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: clamp(7px, 0.7vw, 11px);
+    background: url('/assets/ui/buttons/square-green.png') center / 100% 100% no-repeat;
+    box-shadow: 0 5px 0 rgb(0 0 0 / 58%);
+    color: white;
+    cursor: pointer;
+    place-items: center;
+    font-family: Arial Black, Arial, Helvetica, sans-serif;
+    font-size: clamp(0.68rem, 1.05vw, 0.98rem);
+    font-weight: 1000;
+    letter-spacing: 0.015em;
+    text-shadow:
+        2px 2px 0 #111,
+        -1px -1px 0 #111,
+        1px -1px 0 #111,
+        -1px 1px 0 #111;
+    transition: transform 70ms ease, filter 70ms ease;
+}
+
+.delete-selection-button:hover:not(:disabled) {
+    transform: scale(1.05);
+    filter: brightness(1.1);
+}
+
+.delete-selection-button:active:not(:disabled) {
+    transform: scale(0.93);
+}
+
+.delete-selection-button:focus-visible {
+    outline: 3px solid #fff36a;
+    outline-offset: 2px;
+}
+
+.delete-selection-button:disabled {
+    cursor: default;
+    filter: grayscale(0.68) brightness(0.7);
+    opacity: 0.72;
+}
+
+.delete-selection-decoration {
+    position: absolute;
+    z-index: 0;
+    display: block;
+    width: 58%;
+    height: auto;
+    pointer-events: none;
+    opacity: 0.48;
+    filter: drop-shadow(2px 3px 0 rgb(0 0 0 / 38%));
+    image-rendering: auto;
+}
+
+.delete-selection-label {
+    position: relative;
+    z-index: 1;
+}
+
+@media (max-width: 760px) {
+    .delete-selection-button {
+        width: 68px;
+        border-radius: 7px;
+        box-shadow: 0 3px 0 rgb(0 0 0 / 58%);
+        font-size: 0.61rem;
+    }
+}

@@ -6,6 +6,7 @@ import {
     COLOR_TRIGGER_TYPE,
     catalogTypeFor,
     createConfirmedObject,
+    createEditableObject,
     createPendingObject,
     hexToRgb,
     rgbToHex
@@ -51,6 +52,7 @@ export function initializeEditorGrid(root) {
     const pendingPosition = root.querySelector("[data-pending-position]");
     const movementButtons = [...root.querySelectorAll("[data-move-x][data-move-y]")];
     const confirmPlacementButton = root.querySelector('[data-editor-action="confirm-placement"]');
+    const deleteSelectionButton = root.querySelector('[data-editor-action="delete-selection"]');
     const colorTriggerSettings = root.querySelector("[data-color-trigger-settings]");
     const colorWheelRoot = root.querySelector("[data-color-wheel]");
     const colorTriggerTargetButtons = [...root.querySelectorAll("[data-color-trigger-target]")];
@@ -75,7 +77,9 @@ export function initializeEditorGrid(root) {
         selectedCell: null,
         objects: new Map(),
         pendingObject: null,
-        selectedObjectType: "block",
+        editingObjectKey: null,
+        selectedObjectType: null,
+        buildObjectArmed: false,
         selectedRotation: 0,
         palettePage: 0,
         editorTab: "build",
@@ -223,6 +227,10 @@ export function initializeEditorGrid(root) {
 
     function drawPlacedObjects(firstColumn, lastColumn, firstRow, lastRow) {
         for (const object of state.objects.values()) {
+            if (cellKey(object) === state.editingObjectKey) {
+                continue;
+            }
+
             if (object.x < firstColumn - 2 || object.x > lastColumn + 2 ||
                 object.y < firstRow - 3 || object.y > lastRow + 3) {
                 continue;
@@ -342,31 +350,41 @@ export function initializeEditorGrid(root) {
     }
 
     function updateToolStatus() {
-        const selectedButton = objectButtons.find(
-            button => button.dataset.objectType === state.selectedObjectType);
+        const hasActiveObject = state.editorTab === "build"
+            ? state.buildObjectArmed
+            : Boolean(state.pendingObject);
+        const selectedButton = hasActiveObject
+            ? objectButtons.find(button => button.dataset.objectType === state.selectedObjectType)
+            : null;
         const canRotate = selectedObjectCanRotate();
 
-        selectedObjectName.textContent = selectedButton?.dataset.objectName ?? "Objet";
-        selectedRotation.textContent = canRotate
+        selectedObjectName.textContent = selectedButton?.dataset.objectName ?? "Select an object";
+        selectedRotation.textContent = selectedButton && canRotate
             ? `Rotation ${state.selectedRotation}°`
-            : "Rotation fixe";
+            : selectedButton
+                ? "Fixed rotation"
+                : "Rotation —";
         for (const button of rotateObjectButtons) {
             button.disabled = !canRotate || !state.pendingObject;
         }
     }
 
     function selectedObjectCanRotate() {
-        return objectCatalog[state.selectedObjectType]?.canRotate !== false;
+        const definition = objectCatalog[state.selectedObjectType];
+        return Boolean(definition && definition.canRotate !== false);
     }
 
     function updatePlacementControls() {
         const pending = state.pendingObject;
+        const isEditingExistingObject = state.editingObjectKey !== null &&
+            state.objects.has(state.editingObjectKey);
         placementControls.classList.toggle("is-active", Boolean(pending));
         placementControls.setAttribute("aria-disabled", String(!pending));
         pendingPosition.textContent = pending
             ? `Aperçu : case ${pending.x}, ${pending.y}`
             : "Sélectionne une case";
         confirmPlacementButton.disabled = !pending;
+        deleteSelectionButton.disabled = !isEditingExistingObject;
 
         for (const button of rotateObjectButtons) {
             button.disabled = !pending || !selectedObjectCanRotate();
@@ -436,14 +454,37 @@ export function initializeEditorGrid(root) {
         }
 
         palettePages.hidden = tabName !== "build";
+        syncObjectButtonSelection();
+        updateToolStatus();
+    }
+
+    function syncObjectButtonSelection() {
+        const hasActiveObject = state.editorTab === "build"
+            ? state.buildObjectArmed
+            : Boolean(state.pendingObject);
+
+        for (const objectButton of objectButtons) {
+            objectButton.classList.toggle(
+                "is-selected",
+                hasActiveObject && objectButton.dataset.objectType === state.selectedObjectType);
+        }
     }
 
     function onEditorTabClick(event) {
-        setEditorTab(event.currentTarget.dataset.editorTab);
+        const tabName = event.currentTarget.dataset.editorTab;
+
+        if (tabName === "build" && state.editorTab !== "build") {
+            clearPendingSelection();
+        }
+
+        setEditorTab(tabName);
+        updatePlacementControls();
+        requestDraw();
     }
 
     function selectObject(button) {
         state.selectedObjectType = button.dataset.objectType;
+        state.buildObjectArmed = true;
         state.selectedRotation = 0;
 
         if (state.pendingObject) {
@@ -454,10 +495,7 @@ export function initializeEditorGrid(root) {
                 0);
         }
 
-        for (const objectButton of objectButtons) {
-            objectButton.classList.toggle("is-selected", objectButton === button);
-        }
-
+        syncObjectButtonSelection();
         updateToolStatus();
         updatePlacementControls();
         setEditorTab("build");
@@ -465,6 +503,12 @@ export function initializeEditorGrid(root) {
     }
 
     function preparePlacement(cell) {
+        if (!state.buildObjectArmed || !state.selectedObjectType) {
+            return;
+        }
+
+        const targetKey = cellKey(cell);
+        state.editingObjectKey = state.objects.has(targetKey) ? targetKey : null;
         state.pendingObject = createPendingObject(
             state.selectedObjectType,
             cell.x,
@@ -473,6 +517,44 @@ export function initializeEditorGrid(root) {
         state.selectedCell = { x: cell.x, y: cell.y };
 
         setEditorTab("edit");
+        updatePlacementControls();
+        updateStatus();
+        requestDraw();
+    }
+
+    function clearPendingSelection() {
+        state.pendingObject = null;
+        state.editingObjectKey = null;
+        state.selectedCell = null;
+        updateToolStatus();
+        updatePlacementControls();
+        updateStatus();
+    }
+
+    function selectPlacedObject(cell) {
+        const key = cellKey(cell);
+        const placedObject = state.objects.get(key);
+        state.selectedCell = { ...cell };
+
+        if (!placedObject) {
+            state.pendingObject = null;
+            state.editingObjectKey = null;
+            syncObjectButtonSelection();
+            updateToolStatus();
+            updatePlacementControls();
+            updateStatus();
+            requestDraw();
+            return;
+        }
+
+        state.editingObjectKey = key;
+        state.pendingObject = createEditableObject(placedObject);
+        state.selectedObjectType = state.pendingObject.type;
+        state.buildObjectArmed = false;
+        state.selectedRotation = state.pendingObject.rotation ?? 0;
+
+        syncObjectButtonSelection();
+        updateToolStatus();
         updatePlacementControls();
         updateStatus();
         requestDraw();
@@ -504,16 +586,46 @@ export function initializeEditorGrid(root) {
             return;
         }
 
+        const previousObject = state.editingObjectKey
+            ? state.objects.get(state.editingObjectKey)
+            : null;
         const confirmedObject = createConfirmedObject(state.pendingObject);
+
+        if (state.editingObjectKey) {
+            state.objects.delete(state.editingObjectKey);
+        }
+
         state.objects.set(cellKey(confirmedObject), confirmedObject);
-        root.dispatchEvent(new CustomEvent("editor:object-placed", {
+        root.dispatchEvent(new CustomEvent(
+            previousObject ? "editor:object-updated" : "editor:object-placed", {
             detail: { ...confirmedObject }
         }));
         state.pendingObject = null;
+        state.editingObjectKey = null;
         state.selectedCell = null;
         setEditorTab("build");
         updatePlacementControls();
         updateStatus();
+        requestDraw();
+    }
+
+    function deleteSelectedObject() {
+        if (!state.editingObjectKey) {
+            return;
+        }
+
+        const deletedObject = state.objects.get(state.editingObjectKey);
+
+        if (!deletedObject) {
+            return;
+        }
+
+        state.objects.delete(state.editingObjectKey);
+        root.dispatchEvent(new CustomEvent("editor:object-deleted", {
+            detail: { ...deletedObject }
+        }));
+        clearPendingSelection();
+        setEditorTab("edit");
         requestDraw();
     }
 
@@ -688,7 +800,18 @@ export function initializeEditorGrid(root) {
             state.selectedCell = screenToCell(position.x, position.y);
 
             if (state.selectedCell) {
-                preparePlacement(state.selectedCell);
+                const containsPlacedObject = state.objects.has(cellKey(state.selectedCell));
+
+                if (state.editorTab === "build" && state.buildObjectArmed) {
+                    preparePlacement(state.selectedCell);
+                } else if (containsPlacedObject) {
+                    setEditorTab("edit");
+                    selectPlacedObject(state.selectedCell);
+                } else if (state.editorTab === "edit") {
+                    selectPlacedObject(state.selectedCell);
+                } else {
+                    state.selectedCell = null;
+                }
             }
         }
 
@@ -801,6 +924,7 @@ export function initializeEditorGrid(root) {
     rotateObjectButtons.forEach(button => button.addEventListener("click", rotateObject));
     movementButtons.forEach(button => button.addEventListener("click", onMoveButtonClick));
     confirmPlacementButton.addEventListener("click", confirmPlacement);
+    deleteSelectionButton.addEventListener("click", deleteSelectedObject);
     colorTriggerTargetButtons.forEach(button => button.addEventListener("click", onColorTriggerTargetClick));
     colorTriggerInput.addEventListener("input", onColorTriggerInput);
     colorTriggerValue.addEventListener("input", onColorTriggerHexInput);
@@ -838,6 +962,7 @@ export function initializeEditorGrid(root) {
             rotateObjectButtons.forEach(button => button.removeEventListener("click", rotateObject));
             movementButtons.forEach(button => button.removeEventListener("click", onMoveButtonClick));
             confirmPlacementButton.removeEventListener("click", confirmPlacement);
+            deleteSelectionButton.removeEventListener("click", deleteSelectedObject);
             colorTriggerTargetButtons.forEach(button => button.removeEventListener("click", onColorTriggerTargetClick));
             colorTriggerInput.removeEventListener("input", onColorTriggerInput);
             colorTriggerValue.removeEventListener("input", onColorTriggerHexInput);

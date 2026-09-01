@@ -26,6 +26,21 @@ export function catalogTypeFor(objectType) {
         : objectType;
 }
 
+export function createEditableObject(confirmedObject) {
+    const editableObject = {
+        ...confirmedObject,
+        type: catalogTypeFor(confirmedObject.type)
+    };
+
+    if (editableObject.type === COLOR_TRIGGER_TYPE) {
+        editableObject.colorTarget = confirmedObject.type === GROUND_TRIGGER_TYPE
+            ? "ground"
+            : "background";
+    }
+
+    return editableObject;
+}
+
 export function createConfirmedObject(pendingObject) {
     const confirmedObject = { ...pendingObject };
 

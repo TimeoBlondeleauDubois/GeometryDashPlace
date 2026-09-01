@@ -11,7 +11,7 @@
     <div class="object-palette" data-object-palette>
         @foreach (var definition in EditorObjectCatalog.All)
         {
-            <button class="@GetButtonClass(definition)"
+            <button class="object-button"
                     type="button"
                     data-object-type="@definition.Type"
                     data-object-name="@definition.Name"
@@ -36,8 +36,3 @@
         <img src="/assets/ui/editor/navigation/navigation-arrow.png" alt="" draggable="false" />
     </button>
 </div>
-
-@code {
-    private static string GetButtonClass(EditorObjectDefinition definition) =>
-        definition.Type == "block" ? "object-button is-selected" : "object-button";
-}
