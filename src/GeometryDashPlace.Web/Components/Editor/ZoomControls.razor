@@ -1,8 +1,13 @@
 <section class="zoom-controls" aria-label="Contrôles du zoom">
-    <button type="button" data-editor-action="zoom-in" title="Zoomer" aria-label="Zoomer">
+    <button type="button" title="Zoom in" aria-label="Zoom in" @onclick="Editor.ZoomIn">
         <img src="/assets/ui/zoom/zoom-in.png" alt="" draggable="false" />
     </button>
-    <button type="button" data-editor-action="zoom-out" title="Dézoomer" aria-label="Dézoomer">
+    <button type="button" title="Zoom out" aria-label="Zoom out" @onclick="Editor.ZoomOut">
         <img src="/assets/ui/zoom/zoom-out.png" alt="" draggable="false" />
     </button>
 </section>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}

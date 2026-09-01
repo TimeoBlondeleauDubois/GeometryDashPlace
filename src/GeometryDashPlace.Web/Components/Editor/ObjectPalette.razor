@@ -1,24 +1,26 @@
 @using System.Globalization
 
-<div class="palette-content" data-editor-panel="build">
+<div class="palette-content" hidden="@(Editor.Mode != EditorMode.Build)">
     <button class="palette-navigation palette-navigation-previous"
             type="button"
-            data-palette-action="previous"
-            aria-label="Page d’objets précédente">
+            disabled="@(Editor.PalettePageCount == 1)"
+            aria-label="Previous object page"
+            @onclick="Editor.PreviousPalettePage">
         <img src="/assets/ui/editor/navigation/navigation-arrow.png" alt="" draggable="false" />
     </button>
 
-    <div class="object-palette" data-object-palette>
-        @foreach (var definition in EditorObjectCatalog.All)
+    <div class="object-palette">
+        @foreach (var definition in Editor.VisibleDefinitions)
         {
-            <button class="object-button"
+            <button class="object-button @(Editor.IsObjectSelected(definition.Type) ? "is-selected" : null)"
                     type="button"
                     data-object-type="@definition.Type"
                     data-object-name="@definition.Name"
                     data-object-path="@definition.ImagePath"
                     data-object-y-offset="@definition.YOffset.ToString(CultureInfo.InvariantCulture)"
                     data-object-can-rotate="@definition.CanRotate.ToString().ToLowerInvariant()"
-                    aria-label="@definition.Name">
+                    aria-label="@definition.Name"
+                    @onclick="() => Editor.SelectCatalogObject(definition.Type)">
                 <span class="object-button-frame"></span>
                 <img src="@definition.ImagePath" alt="" draggable="false" />
                 @if (definition.Label is not null)
@@ -31,8 +33,14 @@
 
     <button class="palette-navigation palette-navigation-next"
             type="button"
-            data-palette-action="next"
-            aria-label="Page d’objets suivante">
+            disabled="@(Editor.PalettePageCount == 1)"
+            aria-label="Next object page"
+            @onclick="Editor.NextPalettePage">
         <img src="/assets/ui/editor/navigation/navigation-arrow.png" alt="" draggable="false" />
     </button>
 </div>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}

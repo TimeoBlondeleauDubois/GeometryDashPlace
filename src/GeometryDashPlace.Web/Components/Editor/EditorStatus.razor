@@ -1,5 +1,10 @@
 <aside class="editor-status" aria-live="polite">
-    <strong data-coordinate-value>Case —</strong>
-    <span data-zoom-value>Zoom 100 %</span>
-    <span data-object-count>0 objet</span>
+    <strong>@Editor.CoordinateText</strong>
+    <span>@Editor.ZoomText</span>
+    <span>@Editor.ObjectCountText</span>
 </aside>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}

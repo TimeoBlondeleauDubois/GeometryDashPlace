@@ -1,9 +1,15 @@
 <nav class="editor-mode-tabs" aria-label="Mode de l’éditeur">
-    <button class="is-active" type="button" data-editor-tab="build" aria-pressed="true">
+    <button class="@(Editor.Mode == EditorMode.Build ? "is-active" : null)"
+            type="button"
+            aria-pressed="@(Editor.Mode == EditorMode.Build)"
+            @onclick="() => Editor.SetMode(EditorMode.Build)">
         <span class="mode-decoration mode-decoration-build" aria-hidden="true"></span>
         <span class="mode-label">CRÉER</span>
     </button>
-    <button type="button" data-editor-tab="edit" aria-pressed="false">
+    <button class="@(Editor.Mode == EditorMode.Edit ? "is-active" : null)"
+            type="button"
+            aria-pressed="@(Editor.Mode == EditorMode.Edit)"
+            @onclick="() => Editor.SetMode(EditorMode.Edit)">
         <img class="mode-decoration mode-decoration-edit"
              src="/assets/ui/editor/modes/edit-tools.png"
              alt=""
@@ -12,3 +18,8 @@
     </button>
     <DeleteSelection />
 </nav>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}

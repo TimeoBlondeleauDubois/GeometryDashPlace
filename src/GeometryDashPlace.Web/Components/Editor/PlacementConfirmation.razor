@@ -1,13 +1,18 @@
 <div class="confirm-placement-area">
     <button class="confirm-placement-button"
             type="button"
-            data-editor-action="confirm-placement"
-            aria-label="Confirmer le placement"
-            title="Confirmer le placement"
-            disabled>
+            aria-label="Confirm placement"
+            title="Confirm placement"
+            disabled="@(!Editor.HasPendingObject)"
+            @onclick="Editor.ConfirmPlacement">
         <img src="/assets/ui/editor/confirmation/confirm-checkmark.png"
              alt=""
              aria-hidden="true" />
     </button>
     <small>VALIDER</small>
 </div>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}

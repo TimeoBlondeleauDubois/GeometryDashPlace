@@ -2,8 +2,8 @@
     <EditorModeTabs />
 
     <header class="palette-heading">
-        <strong data-selected-object-name>Bloc</strong>
-        <small data-selected-rotation>Rotation 0°</small>
+        <strong>@Editor.SelectedObjectName</strong>
+        <small>@Editor.RotationText</small>
     </header>
 
     <ObjectPalette />
@@ -11,5 +11,12 @@
     <ColorTriggerSettings />
     <PlacementConfirmation />
 
-    <div class="palette-pages" data-palette-pages aria-live="polite">1 / 4</div>
+    <div class="palette-pages" hidden="@(Editor.Mode != EditorMode.Build)" aria-live="polite">
+        @Editor.PalettePageText
+    </div>
 </section>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}

@@ -1,9 +1,11 @@
 @page "/"
+@rendermode InteractiveServer
 
 <PageTitle>Geometry Dash Place</PageTitle>
 
-<main class="editor-page">
-    <h1 class="visually-hidden">Geometry Dash Place</h1>
-    <EditorViewport />
-    <EditorToolbar />
-</main>
+<CascadingValue Value="Editor">
+    <main class="editor-page">
+        <EditorViewport />
+        <EditorToolbar />
+    </main>
+</CascadingValue>
