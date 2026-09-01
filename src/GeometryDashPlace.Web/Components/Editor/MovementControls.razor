@@ -1,37 +1,52 @@
-<section class="edit-panel"
-         data-editor-panel="edit"
-         data-placement-controls
-         aria-label="Position de l’objet en attente"
-         hidden>
-    <span class="pending-position" data-pending-position>Sélectionne une case</span>
+<section class="edit-panel @(Editor.HasPendingObject ? "is-active" : null)"
+         hidden="@(Editor.Mode != EditorMode.Edit)"
+         aria-label="Selected object position">
+    <span class="pending-position">
+        @(Editor.PendingObject is null
+            ? "Select a cell"
+            : $"Preview: cell {Editor.PendingObject.X}, {Editor.PendingObject.Y}")
+    </span>
     <div class="movement-buttons">
-        <button type="button" data-move-x="0" data-move-y="1" aria-label="Déplacer d’une case vers le haut" disabled>
+        <button type="button" aria-label="Move up one cell"
+                disabled="@(!Editor.CanMovePendingObject(0, 1))"
+                @onclick="() => Editor.MovePendingObject(0, 1)">
             <img src="/assets/ui/editor/movement/move-up.png" alt="" draggable="false" />
         </button>
-        <button type="button" data-move-x="0" data-move-y="-1" aria-label="Déplacer d’une case vers le bas" disabled>
+        <button type="button" aria-label="Move down one cell"
+                disabled="@(!Editor.CanMovePendingObject(0, -1))"
+                @onclick="() => Editor.MovePendingObject(0, -1)">
             <img src="/assets/ui/editor/movement/move-down.png" alt="" draggable="false" />
         </button>
-        <button type="button" data-move-x="-1" data-move-y="0" aria-label="Déplacer d’une case à gauche" disabled>
+        <button type="button" aria-label="Move left one cell"
+                disabled="@(!Editor.CanMovePendingObject(-1, 0))"
+                @onclick="() => Editor.MovePendingObject(-1, 0)">
             <img src="/assets/ui/editor/movement/move-left.png" alt="" draggable="false" />
         </button>
-        <button type="button" data-move-x="1" data-move-y="0" aria-label="Déplacer d’une case à droite" disabled>
+        <button type="button" aria-label="Move right one cell"
+                disabled="@(!Editor.CanMovePendingObject(1, 0))"
+                @onclick="() => Editor.MovePendingObject(1, 0)">
             <img src="/assets/ui/editor/movement/move-right.png" alt="" draggable="false" />
         </button>
         <button class="rotate-object-button"
                 type="button"
-                data-editor-action="rotate-object"
-                data-rotate-step="-90"
-                title="Tourner de 90° vers la gauche"
-                aria-label="Tourner l’objet de 90 degrés vers la gauche">
+                title="Rotate 90° counterclockwise"
+                aria-label="Rotate object 90 degrees counterclockwise"
+                disabled="@(!Editor.CanRotate)"
+                @onclick="() => Editor.RotatePendingObject(-90)">
             <img src="/assets/ui/editor/transforms/rotate-counterclockwise.png" alt="" draggable="false" />
         </button>
         <button class="rotate-object-button"
                 type="button"
-                data-editor-action="rotate-object"
-                data-rotate-step="90"
-                title="Tourner de 90° vers la droite"
-                aria-label="Tourner l’objet de 90 degrés vers la droite">
+                title="Rotate 90° clockwise"
+                aria-label="Rotate object 90 degrees clockwise"
+                disabled="@(!Editor.CanRotate)"
+                @onclick="() => Editor.RotatePendingObject(90)">
             <img src="/assets/ui/editor/transforms/rotate-clockwise.png" alt="" draggable="false" />
         </button>
     </div>
 </section>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}

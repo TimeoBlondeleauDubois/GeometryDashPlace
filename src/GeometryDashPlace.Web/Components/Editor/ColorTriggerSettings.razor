@@ -1,33 +1,37 @@
+@implements IAsyncDisposable
+@inject IJSRuntime JavaScript
+@using System.Globalization
+
 <section class="color-trigger-settings"
-         data-color-trigger-settings
-         aria-label="Paramètres du trigger couleur"
-         hidden>
-    <strong>TRIGGER COULEUR</strong>
+         aria-label="Color trigger settings"
+         hidden="@(!Editor.IsColorTriggerSelected)">
+    <strong>COLOR TRIGGER</strong>
 
     <div class="color-target-field">
-        <span>Cible</span>
+        <span>Target</span>
         <div class="color-target-options">
-            <button class="is-active"
+            <button class="@(Editor.ColorTarget == "background" ? "is-active" : null)"
                     type="button"
-                    data-color-trigger-target="background"
-                    aria-pressed="true">BG</button>
-            <button type="button"
-                    data-color-trigger-target="ground"
-                    aria-pressed="false">GROUND</button>
+                    aria-pressed="@(Editor.ColorTarget == "background")"
+                    @onclick="SelectBackground">BG</button>
+            <button class="@(Editor.ColorTarget == "ground" ? "is-active" : null)"
+                    type="button"
+                    aria-pressed="@(Editor.ColorTarget == "ground")"
+                    @onclick="SelectGround">GROUND</button>
         </div>
     </div>
 
     <div class="color-value-field">
-        <span>Couleur</span>
+        <span>Color</span>
 
         <div class="gd-color-picker"
-             data-color-wheel
-             style="--picker-color: #ff0000; --selected-color: #ffffff;">
+             @ref="_colorWheel"
+             style="--picker-color: #ff0000; --selected-color: @Editor.ColorHex;">
             <div class="hue-wheel-surface"
                  data-color-wheel-hue
                  role="slider"
                  tabindex="0"
-                 aria-label="Teinte"
+                 aria-label="Hue"
                  aria-valuemin="0"
                  aria-valuemax="359"
                  aria-valuenow="0">
@@ -45,7 +49,7 @@
                      data-color-wheel-plane
                      role="application"
                      tabindex="0"
-                     aria-label="Saturation et luminosité">
+                     aria-label="Saturation and brightness">
                     <span class="color-plane-base" aria-hidden="true"></span>
                     <img class="color-plane-layer"
                          src="/assets/ui/color-picker/wheel/color-shading.png"
@@ -65,31 +69,81 @@
         </div>
 
         <div class="color-picker-readout">
-            <span class="selected-color-swatch" aria-hidden="true"></span>
-            <input class="color-hex-input"
+            <span class="selected-color-swatch"
+                  style="--selected-color: @Editor.ColorHex;"
+                  aria-hidden="true"></span>
+            <input class="color-hex-input @(Editor.IsColorHexInvalid ? "is-invalid" : null)"
                    type="text"
-                   value="#FFFFFF"
+                   value="@Editor.ColorHex"
                    maxlength="7"
                    autocomplete="off"
                    spellcheck="false"
-                   data-color-trigger-color-value
+                   @oninput="HandleHexInput"
                    aria-label="Hex color code" />
         </div>
 
-        <input type="hidden"
-               value="#ffffff"
-               data-color-trigger-color />
+        <input @ref="_colorInput"
+               type="hidden"
+               value="@Editor.ColorHex"
+               @oninput="HandleWheelInput" />
     </div>
 
     <label class="duration-field">
-        <span>Durée</span>
+        <span>Duration</span>
         <input type="number"
-               value="0.2"
+               value="@Editor.ColorDuration.ToString(CultureInfo.InvariantCulture)"
                min="0"
                step="0.1"
                inputmode="decimal"
-               data-color-trigger-duration
-               aria-label="Durée du changement de couleur en secondes" />
-        <small>seconde(s)</small>
+               @oninput="HandleDurationInput"
+               aria-label="Color transition duration in seconds" />
+        <small>second(s)</small>
     </label>
 </section>
+
+@code {
+    private ElementReference _colorWheel;
+    private ElementReference _colorInput;
+    private IJSObjectReference? _module;
+
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _module = await JavaScript.InvokeAsync<IJSObjectReference>(
+                "import", "/js/editor/color-wheel-interop.js");
+            await _module.InvokeVoidAsync("initialize", _colorWheel, _colorInput);
+        }
+
+        if (_module is not null)
+        {
+            await _module.InvokeVoidAsync("setColor", _colorWheel, Editor.ColorHex);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_module is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _module.InvokeVoidAsync("dispose", _colorWheel);
+            await _module.DisposeAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    private void HandleWheelInput(ChangeEventArgs eventArgs) => Editor.SetColorHex(eventArgs.Value?.ToString());
+    private void HandleHexInput(ChangeEventArgs eventArgs) => Editor.SetColorHex(eventArgs.Value?.ToString());
+    private void HandleDurationInput(ChangeEventArgs eventArgs) => Editor.SetColorDuration(eventArgs.Value?.ToString());
+    private void SelectBackground() => Editor.SetColorTarget("background");
+    private void SelectGround() => Editor.SetColorTarget("ground");
+}

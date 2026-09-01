@@ -1,4 +1,4 @@
-import { hexToRgb, rgbToHex } from "/js/editor/color-trigger.js";
+import { hexToRgb, rgbToHex } from "/js/editor/color-utils.js";
 
 const FULL_CIRCLE = Math.PI * 2;
 const SQRT_TWO = Math.sqrt(2);

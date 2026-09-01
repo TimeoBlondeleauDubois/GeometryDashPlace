@@ -4,7 +4,8 @@
             data-editor-action="delete-selection"
             aria-label="Delete selected object"
             title="Delete selected object"
-            disabled>
+            disabled="@(!Editor.CanDelete)"
+            @onclick="Editor.DeleteSelectedObject">
         <img class="delete-selection-decoration"
              src="/assets/ui/editor/actions/delete-object.png"
              alt=""
@@ -13,3 +14,8 @@
         <span class="delete-selection-label">DELETE</span>
     </button>
 </div>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}
