@@ -1,0 +1,179 @@
+.palette-content {
+    position: relative;
+    display: flex;
+    min-height: 0;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(8px, 1.3vw, 20px);
+}
+
+.palette-content[hidden] {
+    display: none;
+}
+
+.object-palette {
+    display: grid;
+    grid-template-columns: repeat(6, clamp(52px, 5.1vw, 78px));
+    grid-template-rows: repeat(2, clamp(52px, 5.1vw, 78px));
+    grid-auto-flow: row;
+    gap: clamp(5px, 0.7vw, 10px);
+    align-content: center;
+    justify-content: center;
+}
+
+.object-button {
+    box-sizing: border-box;
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: clamp(52px, 5.1vw, 78px);
+    height: clamp(52px, 5.1vw, 78px);
+    padding: 11%;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    filter: drop-shadow(0 3px 1px rgb(0 0 0 / 55%));
+    transition: transform 80ms ease, filter 80ms ease;
+}
+
+.object-button:hover {
+    z-index: 2;
+    transform: scale(1.08);
+    filter: brightness(1.13) drop-shadow(0 4px 2px rgb(0 0 0 / 58%));
+}
+
+.object-button:active {
+    transform: scale(0.94);
+}
+
+.object-button:focus-visible,
+.palette-navigation:focus-visible {
+    border-radius: 12px;
+    outline: 3px solid #fff36a;
+    outline-offset: 2px;
+}
+
+.object-button-frame {
+    position: absolute;
+    inset: 0;
+    background: url('/assets/ui/buttons/button-square-gray.png') center / contain no-repeat;
+    pointer-events: none;
+}
+
+.object-button > img {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 50%;
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 70%;
+    max-height: 70%;
+    object-fit: contain;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.object-button[data-object-type$="_portal"] > img {
+    max-width: 46%;
+    max-height: 76%;
+}
+
+.object-button[data-object-type$="_trigger"] > img {
+    max-width: 50%;
+    max-height: 65%;
+}
+
+.object-button[data-object-type$="_speed"] > img,
+.object-button[data-object-type$="_pad"] > img {
+    max-width: 73%;
+    max-height: 58%;
+}
+
+.object-button.is-selected {
+    filter: drop-shadow(0 3px 1px rgb(0 0 0 / 55%));
+}
+
+.object-button.is-selected .object-button-frame {
+    filter: brightness(0.78);
+}
+
+.object-button.is-selected:hover {
+    transform: scale(1.08);
+    filter: brightness(1.06) drop-shadow(0 4px 2px rgb(0 0 0 / 58%));
+}
+
+.trigger-label {
+    position: absolute;
+    z-index: 2;
+    right: 15%;
+    bottom: 13%;
+    color: #fff;
+    font-size: clamp(0.48rem, 0.65vw, 0.65rem);
+    font-weight: 900;
+    text-shadow: 1px 1px 0 #000;
+    pointer-events: none;
+}
+
+.palette-navigation {
+    flex: 0 0 auto;
+    width: clamp(44px, 4.3vw, 66px);
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    filter: drop-shadow(0 4px 2px rgb(0 0 0 / 55%));
+    transition: transform 80ms ease, opacity 80ms ease;
+}
+
+.palette-navigation img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.palette-navigation-next img {
+    transform: scaleX(-1);
+}
+
+.palette-navigation:hover:not(:disabled) {
+    transform: scale(1.09);
+}
+
+.palette-navigation:active:not(:disabled) {
+    transform: scale(0.93);
+}
+
+.palette-navigation:disabled {
+    cursor: default;
+    opacity: 0.24;
+}
+
+.object-button[hidden] {
+    display: none;
+}
+
+@media (max-width: 760px) {
+    .palette-content {
+        gap: 3px;
+    }
+
+    .object-palette {
+        grid-template-columns: repeat(6, clamp(38px, 7.3vw, 52px));
+        grid-template-rows: repeat(2, clamp(38px, 7.3vw, 52px));
+        gap: 3px;
+    }
+
+    .object-button {
+        width: clamp(38px, 7.3vw, 52px);
+        height: clamp(38px, 7.3vw, 52px);
+    }
+
+    .palette-navigation {
+        width: 38px;
+    }
+}

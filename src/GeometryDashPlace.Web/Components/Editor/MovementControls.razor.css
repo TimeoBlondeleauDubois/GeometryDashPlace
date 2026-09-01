@@ -1,0 +1,108 @@
+.edit-panel {
+    display: grid;
+    min-height: 0;
+    place-content: center;
+    justify-items: center;
+    gap: 5px;
+}
+
+.edit-panel[hidden] {
+    display: none;
+}
+
+.pending-position {
+    min-width: 190px;
+    color: rgb(255 255 255 / 68%);
+    font-size: 0.76rem;
+    font-weight: 900;
+    line-height: 16px;
+    text-align: center;
+    text-shadow: 1px 1px 0 #000;
+}
+
+.edit-panel.is-active .pending-position {
+    color: #fff36a;
+}
+
+.movement-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, clamp(48px, 4.6vw, 66px));
+    grid-template-rows: repeat(2, clamp(48px, 4.6vw, 66px));
+    gap: clamp(5px, 0.7vw, 9px);
+}
+
+.movement-buttons button {
+    box-sizing: border-box;
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: clamp(48px, 4.6vw, 66px);
+    height: clamp(48px, 4.6vw, 66px);
+    min-width: 0;
+    padding: 13px;
+    overflow: hidden;
+    border: 3px solid #fff;
+    border-radius: 9px;
+    background: linear-gradient(#9aed31, #58c712);
+    box-shadow: inset 0 0 0 3px #172013, 0 3px 0 rgb(0 0 0 / 58%);
+    cursor: pointer;
+    transition: transform 70ms ease, filter 70ms ease;
+}
+
+.movement-buttons button:hover:not(:disabled) {
+    z-index: 2;
+    transform: scale(1.07);
+    filter: brightness(1.12);
+}
+
+.movement-buttons button:active:not(:disabled) {
+    transform: scale(0.93);
+}
+
+.movement-buttons button:focus-visible {
+    outline: 3px solid #fff36a;
+    outline-offset: 3px;
+}
+
+.movement-buttons button:disabled {
+    cursor: default;
+    background: linear-gradient(#6b9b43, #426d2a);
+    opacity: 0.82;
+}
+
+.movement-buttons img {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 68%;
+    max-height: 68%;
+    object-fit: contain;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+}
+
+.movement-buttons .rotate-object-button > img {
+    max-width: 62%;
+    max-height: 62%;
+}
+
+@media (max-width: 760px) {
+    .pending-position {
+        display: none;
+    }
+
+    .movement-buttons {
+        grid-template-columns: repeat(4, 36px);
+        grid-template-rows: repeat(2, 36px);
+        gap: 2px;
+    }
+
+    .movement-buttons button {
+        width: 36px;
+        height: 36px;
+        padding: 7px;
+    }
+}

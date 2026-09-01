@@ -1,0 +1,38 @@
+@using System.Globalization
+
+<div class="palette-content" data-editor-panel="build">
+    <button class="palette-navigation palette-navigation-previous"
+            type="button"
+            data-palette-action="previous"
+            aria-label="Page d’objets précédente">
+        <img src="/assets/ui/editor/navigation/navigation-arrow.png" alt="" draggable="false" />
+    </button>
+
+    <div class="object-palette" data-object-palette>
+        @foreach (var definition in EditorObjectCatalog.All)
+        {
+            <button class="object-button"
+                    type="button"
+                    data-object-type="@definition.Type"
+                    data-object-name="@definition.Name"
+                    data-object-path="@definition.ImagePath"
+                    data-object-y-offset="@definition.YOffset.ToString(CultureInfo.InvariantCulture)"
+                    data-object-can-rotate="@definition.CanRotate.ToString().ToLowerInvariant()"
+                    aria-label="@definition.Name">
+                <span class="object-button-frame"></span>
+                <img src="@definition.ImagePath" alt="" draggable="false" />
+                @if (definition.Label is not null)
+                {
+                    <span class="trigger-label" aria-hidden="true">@definition.Label</span>
+                }
+            </button>
+        }
+    </div>
+
+    <button class="palette-navigation palette-navigation-next"
+            type="button"
+            data-palette-action="next"
+            aria-label="Page d’objets suivante">
+        <img src="/assets/ui/editor/navigation/navigation-arrow.png" alt="" draggable="false" />
+    </button>
+</div>

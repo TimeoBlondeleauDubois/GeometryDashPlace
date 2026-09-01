@@ -1,0 +1,88 @@
+.confirm-placement-area {
+    position: absolute;
+    z-index: 4;
+    top: 50%;
+    right: clamp(12px, 3vw, 54px);
+    display: grid;
+    min-width: clamp(78px, 7vw, 104px);
+    padding-left: clamp(14px, 2vw, 28px);
+    place-items: center;
+    gap: 4px;
+    transform: translateY(-50%);
+}
+
+.confirm-placement-button {
+    appearance: none;
+    box-sizing: border-box;
+    display: grid;
+    width: clamp(68px, 6vw, 94px);
+    height: clamp(68px, 6vw, 94px);
+    padding: 0;
+    overflow: hidden;
+    border: 0;
+    border-radius: clamp(7px, 0.7vw, 11px);
+    background: url('/assets/ui/buttons/square-green.png') center / 100% 100% no-repeat;
+    box-shadow: 0 5px 0 rgb(0 0 0 / 58%);
+    cursor: pointer;
+    place-items: center;
+    transition: transform 70ms ease, filter 70ms ease;
+}
+
+.confirm-placement-button:hover:not(:disabled) {
+    transform: scale(1.07);
+    filter: brightness(1.12);
+}
+
+.confirm-placement-button:active:not(:disabled) {
+    transform: scale(0.93);
+}
+
+.confirm-placement-button:focus-visible {
+    outline: 3px solid #fff36a;
+    outline-offset: 3px;
+}
+
+.confirm-placement-button:disabled {
+    cursor: default;
+    filter: grayscale(0.78) brightness(0.62);
+    opacity: 0.62;
+}
+
+.confirm-placement-button img {
+    display: block;
+    width: 58%;
+    height: auto;
+    pointer-events: none;
+    filter: drop-shadow(2px 3px 0 rgb(0 0 0 / 45%));
+    image-rendering: auto;
+}
+
+.confirm-placement-area small {
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 1000;
+    letter-spacing: 0.04em;
+    text-shadow: 1px 2px 0 #000;
+}
+
+@media (max-width: 760px) {
+    .confirm-placement-area {
+        right: 5px;
+        min-width: 48px;
+        padding-left: 7px;
+        gap: 2px;
+    }
+
+    .confirm-placement-button {
+        width: 44px;
+        height: 44px;
+    }
+
+    .confirm-placement-button img {
+        width: 60%;
+    }
+
+    .confirm-placement-area small {
+        font-size: 0.52rem;
+    }
+}

@@ -1,0 +1,51 @@
+namespace GeometryDashPlace.Web.Components.Editor;
+
+public static class EditorObjectCatalog
+{
+    public static IReadOnlyList<EditorObjectDefinition> All { get; } =
+    [
+        new("block", "Block", "/assets/objects/blocks/block.png"),
+        new("line_block", "Line block", "/assets/objects/blocks/block-line.png"),
+        new("corner_block", "Corner block", "/assets/objects/blocks/block-corner.png"),
+        new("dot_block", "Dot block", "/assets/objects/blocks/block-dot.png"),
+        new("deco_block", "Decoration block", "/assets/objects/blocks/block-decoration.png"),
+        new("top_block", "Top block", "/assets/objects/blocks/block-top.png"),
+        new("column_block", "Column block", "/assets/objects/blocks/block-column.png"),
+        new("half_block", "Half block", "/assets/objects/blocks/block-half.png", 8),
+        new("spike", "Spike", "/assets/objects/hazards/spike.png"),
+        new("ground_spike", "Ground spike", "/assets/objects/hazards/spike-ground.png", -12.5),
+        new("flat_spike", "Flat spike", "/assets/objects/hazards/spike-flat.png", -9),
+        new("blue_portal", "Blue portal", "/assets/objects/portals/portal-gravity-normal.png"),
+        new("yellow_portal", "Yellow portal", "/assets/objects/portals/portal-gravity-reversed.png"),
+        new("cube_portal", "Cube portal", "/assets/objects/portals/portal-cube.png"),
+        new("ship_portal", "Ship portal", "/assets/objects/portals/portal-ship.png"),
+        new("ball_portal", "Ball portal", "/assets/objects/portals/portal-ball.png"),
+        new("ufo_portal", "UFO portal", "/assets/objects/portals/portal-ufo.png"),
+        new("wave_portal", "Wave portal", "/assets/objects/portals/portal-wave.png"),
+        new("robot_portal", "Robot portal", "/assets/objects/portals/portal-robot.png"),
+        new("spider_portal", "Spider portal", "/assets/objects/portals/portal-spider.png"),
+        new("swing_portal", "Swing portal", "/assets/objects/portals/portal-swing.png"),
+        new("mini_portal", "Mini portal", "/assets/objects/portals/portal-size-mini.png"),
+        new("normal_size_portal", "Normal-size portal", "/assets/objects/portals/portal-size-normal.png"),
+        new("yellow_pad", "Yellow pad", "/assets/objects/pads/pad-jump-yellow.png", -13),
+        new("pink_pad", "Pink pad", "/assets/objects/pads/pad-jump-pink.png", -13),
+        new("red_pad", "Red pad", "/assets/objects/pads/pad-jump-red.png", -13),
+        new("blue_gravity_pad", "Blue gravity pad", "/assets/objects/pads/pad-gravity-blue.png", -13),
+        new("purple_spider_pad", "Purple spider pad", "/assets/objects/pads/pad-spider-purple.png", -13),
+        new("yellow_orb", "Yellow orb", "/assets/objects/orbs/orb-jump-yellow.png"),
+        new("pink_orb", "Pink orb", "/assets/objects/orbs/orb-jump-pink.png"),
+        new("red_orb", "Red orb", "/assets/objects/orbs/orb-jump-red.png"),
+        new("blue_gravity_orb", "Blue gravity orb", "/assets/objects/orbs/orb-gravity-blue.png"),
+        new("green_gravity_orb", "Green gravity orb", "/assets/objects/orbs/orb-gravity-green.png"),
+        new("black_orb", "Black orb", "/assets/objects/orbs/orb-drop-black.png"),
+        new("green_dash_orb", "Green dash orb", "/assets/objects/orbs/orb-dash-green.png"),
+        new("pink_dash_orb", "Pink dash orb", "/assets/objects/orbs/orb-dash-pink.png"),
+        new("purple_spider_orb", "Purple spider orb", "/assets/objects/orbs/orb-spider-purple.png"),
+        new("slow_speed", "Slow speed", "/assets/objects/speeds/speed-slow.png"),
+        new("normal_speed", "Normal speed", "/assets/objects/speeds/speed-normal.png"),
+        new("fast_speed", "Fast speed", "/assets/objects/speeds/speed-fast.png"),
+        new("very_fast_speed", "Very fast speed", "/assets/objects/speeds/speed-very-fast.png"),
+        new("extremely_fast_speed", "Extremely fast speed", "/assets/objects/speeds/speed-extremely-fast.png"),
+        new("color_trigger", "Color trigger", "/assets/objects/triggers/trigger-color.png", CanRotate: false)
+    ];
+}
