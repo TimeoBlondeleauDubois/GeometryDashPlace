@@ -13,6 +13,7 @@ export function initialize(canvas, dotNetReference, options) {
         objectImages: new Map(),
         backgroundImage: null,
         groundImage: null,
+        freeRotationHandleImage: null,
         snapshot: null,
         frame: 0,
         observer: null,
@@ -23,6 +24,7 @@ export function initialize(canvas, dotNetReference, options) {
     const requestDraw = () => requestRender(canvas, instance);
     instance.backgroundImage = loadImage(options.backgroundTexturePath, requestDraw);
     instance.groundImage = loadImage(options.groundTexturePath, requestDraw);
+    instance.freeRotationHandleImage = loadImage(options.freeRotationHandlePath, requestDraw);
 
     for (const definition of options.definitions) {
         instance.objectImages.set(definition.type, loadImage(definition.path, requestDraw));
@@ -172,6 +174,8 @@ function drawEditor(canvas, instance) {
         "rgba(111, 196, 255, 0.20)", "rgba(174, 228, 255, 0.9)", 2, false);
     drawCell(context, state, state.selectedCell, gridToScreenX, gridToScreenY,
         "rgba(255, 235, 55, 0.2)", "#fff36a", 3, true);
+
+    drawFreeRotationGuide(context, instance, state, gridToScreenX, gridToScreenY);
 }
 
 function drawObject(context, instance, state, object, gridToScreenX, gridToScreenY) {
@@ -185,22 +189,51 @@ function drawObject(context, instance, state, object, gridToScreenX, gridToScree
     const height = state.cellSize * image.naturalHeight / state.objectTextureUnit;
     let centerX = gridToScreenX(object.x + 0.5);
     let centerY = gridToScreenY(object.y + 0.5);
-    let offset = definition.yOffset;
-
-    if (object.rotation === 180 || object.rotation === 270) {
-        offset *= -1;
-    }
-    if (object.rotation === 90 || object.rotation === 270) {
-        centerX += offset / 30 * state.cellSize;
-    } else {
-        centerY -= offset / 30 * state.cellSize;
-    }
+    const offset = definition.yOffset / 30 * state.cellSize;
+    const rotation = object.rotation * Math.PI / 180;
+    centerX += Math.sin(rotation) * offset;
+    centerY -= Math.cos(rotation) * offset;
 
     context.save();
     context.globalAlpha = object.opacity;
     context.translate(centerX, centerY);
-    context.rotate(object.rotation * Math.PI / 180);
+    context.rotate(rotation);
     context.drawImage(image, -width / 2, -height / 2, width, height);
+    context.restore();
+}
+
+function drawFreeRotationGuide(context, instance, state, gridToScreenX, gridToScreenY) {
+    const guide = state.rotationGuide;
+    if (!guide) {
+        return;
+    }
+
+    const centerX = gridToScreenX(guide.x + 0.5);
+    const centerY = gridToScreenY(guide.y + 0.5);
+    const radius = guide.radiusCells * state.cellSize;
+
+    context.save();
+    context.strokeStyle = "rgba(255, 255, 255, 0.95)";
+    context.lineWidth = Math.max(1, state.cellSize * 0.045);
+    context.beginPath();
+    context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    context.stroke();
+
+    const handleRadians = (guide.rotation - 90) * Math.PI / 180;
+    const handleX = centerX + Math.cos(handleRadians) * radius;
+    const handleY = centerY + Math.sin(handleRadians) * radius;
+    const handleImage = instance.freeRotationHandleImage;
+    const handleSize = Math.min(116, Math.max(38, state.cellSize * 2.2));
+
+    if (handleImage?.complete && handleImage.naturalWidth) {
+        const handleHeight = handleSize * handleImage.naturalHeight / handleImage.naturalWidth;
+        context.drawImage(handleImage,
+            handleX - handleSize / 2,
+            handleY - handleHeight / 2,
+            handleSize,
+            handleHeight);
+    }
+
     context.restore();
 }
 

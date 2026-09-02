@@ -4,14 +4,14 @@ public static class EditorObjectCatalog
 {
     public static IReadOnlyList<EditorObjectDefinition> All { get; } =
     [
-        new("block", "Block", "/assets/objects/blocks/block.png"),
-        new("line_block", "Line block", "/assets/objects/blocks/block-line.png"),
-        new("corner_block", "Corner block", "/assets/objects/blocks/block-corner.png"),
-        new("dot_block", "Dot block", "/assets/objects/blocks/block-dot.png"),
-        new("deco_block", "Decoration block", "/assets/objects/blocks/block-decoration.png"),
-        new("top_block", "Top block", "/assets/objects/blocks/block-top.png"),
-        new("column_block", "Column block", "/assets/objects/blocks/block-column.png"),
-        new("half_block", "Half block", "/assets/objects/blocks/block-half.png", 8),
+        StaticBlock("block", "Block", "/assets/objects/blocks/block.png"),
+        StaticBlock("line_block", "Line block", "/assets/objects/blocks/block-line.png"),
+        StaticBlock("corner_block", "Corner block", "/assets/objects/blocks/block-corner.png"),
+        StaticBlock("dot_block", "Dot block", "/assets/objects/blocks/block-dot.png"),
+        StaticBlock("deco_block", "Decoration block", "/assets/objects/blocks/block-decoration.png"),
+        StaticBlock("top_block", "Top block", "/assets/objects/blocks/block-top.png"),
+        StaticBlock("column_block", "Column block", "/assets/objects/blocks/block-column.png"),
+        StaticBlock("half_block", "Half block", "/assets/objects/blocks/block-half.png", 8),
         new("spike", "Spike", "/assets/objects/hazards/spike.png"),
         new("ground_spike", "Ground spike", "/assets/objects/hazards/spike-ground.png", -12.5),
         new("flat_spike", "Flat spike", "/assets/objects/hazards/spike-flat.png", -9),
@@ -46,6 +46,14 @@ public static class EditorObjectCatalog
         new("fast_speed", "Fast speed", "/assets/objects/speeds/speed-fast.png"),
         new("very_fast_speed", "Very fast speed", "/assets/objects/speeds/speed-very-fast.png"),
         new("extremely_fast_speed", "Extremely fast speed", "/assets/objects/speeds/speed-extremely-fast.png"),
-        new("color_trigger", "Color trigger", "/assets/objects/triggers/trigger-color.png", CanRotate: false)
+        new("color_trigger", "Color trigger", "/assets/objects/triggers/trigger-color.png",
+            RotationMode: EditorObjectRotationMode.None)
     ];
+
+    private static EditorObjectDefinition StaticBlock(
+        string type,
+        string name,
+        string imagePath,
+        double yOffset = 0) =>
+        new(type, name, imagePath, yOffset, EditorObjectRotationMode.QuarterTurns);
 }

@@ -43,6 +43,15 @@
                 @onclick="() => Editor.RotatePendingObject(90)">
             <img src="/assets/ui/editor/transforms/rotate-clockwise.png" alt="" draggable="false" />
         </button>
+        <button class="free-rotation-button @(Editor.FreeRotationEnabled ? "is-selected" : null)"
+                type="button"
+                title="Free rotation"
+                aria-label="Toggle free rotation"
+                aria-pressed="@Editor.FreeRotationEnabled"
+                disabled="@(!Editor.CanFreeRotate)"
+                @onclick="Editor.ToggleFreeRotation">
+            <img src="/assets/ui/editor/modes/mode-free-rotate.png" alt="" draggable="false" />
+        </button>
     </div>
 </section>
 

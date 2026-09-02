@@ -9,10 +9,12 @@ public sealed class EditorSession
     public const int GroundTileCells = 4;
     public const int ObjectTextureUnit = 120;
     public const int PalettePageSize = 12;
+    public const double FreeRotationRadiusCells = 5;
     public const double MinimumZoom = 0.5;
     public const double MaximumZoom = 3;
     public const string BackgroundTexturePath = "/assets/environment/backgrounds/classic-square.png";
     public const string GroundTexturePath = "/assets/environment/grounds/classic-square.png";
+    public const string FreeRotationHandlePath = "/assets/ui/editor/transforms/free-rotation-handle.png";
 
     private const string ColorTriggerType = "color_trigger";
     private const string BackgroundColorTriggerType = "bg_color_trigger";
@@ -25,6 +27,7 @@ public sealed class EditorSession
     private double _pointerX;
     private double _pointerY;
     private double _dragDistance;
+    private bool _isFreeRotating;
 
     public EditorSession(IReadOnlyList<EditorObjectDefinition> definitions)
     {
@@ -47,11 +50,13 @@ public sealed class EditorSession
     public string? EditingObjectKey { get; private set; }
     public string? SelectedObjectType { get; private set; }
     public bool BuildObjectArmed { get; private set; }
-    public int SelectedRotation { get; private set; }
+    public double SelectedRotation { get; private set; }
     public int PalettePage { get; private set; }
+    public bool FreeRotationEnabled { get; private set; }
     public bool HasPendingObject => PendingObject is not null;
     public bool CanDelete => EditingObjectKey is not null && _objects.ContainsKey(EditingObjectKey);
-    public bool CanRotate => PendingObject is not null && SelectedDefinition?.CanRotate is not false;
+    public bool CanRotate => PendingObject is not null && SelectedDefinition?.CanRotate is true;
+    public bool CanFreeRotate => PendingObject is not null && SelectedDefinition?.CanFreeRotate is true;
     public bool IsColorTriggerSelected => PendingObject?.Type == ColorTriggerType;
     public int ObjectCount => _objects.Count;
     public int PalettePageCount => Math.Max(1, (int)Math.Ceiling((double)_definitions.Count / PalettePageSize));
@@ -65,9 +70,7 @@ public sealed class EditorSession
     public string ZoomText => $"Zoom {Math.Round(Zoom * 100)} %";
     public string ObjectCountText => $"{ObjectCount} object{(ObjectCount == 1 ? string.Empty : "s")}";
     public string SelectedObjectName => ActiveDefinition?.Name ?? "Select an object";
-    public string RotationText => ActiveDefinition is null
-        ? "Rotation —"
-        : ActiveDefinition.CanRotate ? $"Rotation {SelectedRotation}°" : "Fixed rotation";
+    public string RotationValueText => SelectedRotation.ToString("0.###", CultureInfo.InvariantCulture);
     public string ColorTarget => PendingObject?.ColorTarget ?? "background";
     public string ColorHex => PendingObject is null
         ? "#FFFFFF"
@@ -114,6 +117,10 @@ public sealed class EditorSession
         }
 
         Mode = mode;
+        if (mode != EditorMode.Edit)
+        {
+            FreeRotationEnabled = false;
+        }
         NotifyChanged();
     }
 
@@ -127,6 +134,7 @@ public sealed class EditorSession
         SelectedObjectType = type;
         BuildObjectArmed = true;
         SelectedRotation = 0;
+        FreeRotationEnabled = false;
 
         if (PendingObject is not null)
         {
@@ -174,14 +182,42 @@ public sealed class EditorSession
         return nextX >= 0 && nextX < ColumnCount && nextY >= 0 && nextY < RowCount;
     }
 
-    public void RotatePendingObject(int step)
+    public void RotatePendingObject(double step)
     {
         if (!CanRotate || PendingObject is null)
         {
             return;
         }
 
-        SelectedRotation = (SelectedRotation + step + 360) % 360;
+        var rotationMode = SelectedDefinition!.RotationMode;
+        SelectedRotation = rotationMode is EditorObjectRotationMode.QuarterTurns
+            ? NormalizeRotation(Math.Round(SelectedRotation / 90) * 90 + Math.Round(step / 90) * 90)
+            : NormalizeRotation(SelectedRotation + step);
+        PendingObject.Rotation = SelectedRotation;
+        NotifyChanged();
+    }
+
+    public void ToggleFreeRotation()
+    {
+        if (!CanFreeRotate)
+        {
+            return;
+        }
+
+        FreeRotationEnabled = !FreeRotationEnabled;
+        _isFreeRotating = false;
+        NotifyChanged();
+    }
+
+    public void SetPendingRotation(string? value)
+    {
+        if (!CanFreeRotate || PendingObject is null ||
+            !double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var rotation))
+        {
+            return;
+        }
+
+        SelectedRotation = NormalizeRotation(rotation);
         PendingObject.Rotation = SelectedRotation;
         NotifyChanged();
     }
@@ -193,6 +229,8 @@ public sealed class EditorSession
             return;
         }
 
+        PendingObject.Rotation = ConstrainRotation(PendingObject.Type, PendingObject.Rotation);
+        SelectedRotation = PendingObject.Rotation;
         var confirmedObject = CreateConfirmedObject(PendingObject);
         if (EditingObjectKey is not null)
         {
@@ -203,6 +241,7 @@ public sealed class EditorSession
         PendingObject = null;
         EditingObjectKey = null;
         SelectedCell = null;
+        FreeRotationEnabled = false;
         Mode = EditorMode.Build;
         NotifyChanged();
     }
@@ -271,6 +310,11 @@ public sealed class EditorSession
         _pointerX = x;
         _pointerY = y;
         _dragDistance = 0;
+        _isFreeRotating = FreeRotationEnabled && CanFreeRotate && IsOverFreeRotationHandle(x, y);
+        if (_isFreeRotating)
+        {
+            UpdateFreeRotation(x, y);
+        }
         return true;
     }
 
@@ -278,6 +322,13 @@ public sealed class EditorSession
     {
         if (_pointerId == pointerId)
         {
+            if (_isFreeRotating)
+            {
+                UpdateFreeRotation(x, y);
+                NotifyChanged();
+                return;
+            }
+
             var deltaX = x - _pointerX;
             var deltaY = y - _pointerY;
             _pointerX = x;
@@ -296,6 +347,15 @@ public sealed class EditorSession
     {
         if (_pointerId != pointerId)
         {
+            return;
+        }
+
+        if (_isFreeRotating)
+        {
+            UpdateFreeRotation(x, y);
+            _isFreeRotating = false;
+            _pointerId = null;
+            NotifyChanged();
             return;
         }
 
@@ -348,10 +408,14 @@ public sealed class EditorSession
             renderObjects.Add(CreateRenderObject(PendingObject, 0.62));
         }
 
+        var rotationGuide = FreeRotationEnabled && PendingObject is not null && CanFreeRotate
+            ? new FreeRotationGuide(PendingObject.X, PendingObject.Y, SelectedRotation, FreeRotationRadiusCells)
+            : null;
+
         return new EditorRenderSnapshot(
             Width, Height, BaseCellSize, CellSize, GroundBaseline, OffsetX, OffsetY,
             ColumnCount, RowCount, GroundTileCells, ObjectTextureUnit,
-            renderObjects, HoverCell, SelectedCell);
+            renderObjects, HoverCell, SelectedCell, rotationGuide);
     }
 
     private void HandleCellClick(EditorCell cell)
@@ -390,7 +454,7 @@ public sealed class EditorSession
         EditingObjectKey = replacedObjectKey;
         PendingObject = CreatePendingObject(SelectedObjectType, cell.X, cell.Y, SelectedRotation);
         SelectedCell = cell;
-        Mode = EditorMode.Edit;
+        FreeRotationEnabled = false;
     }
 
     private void SelectPlacedObject(EditorCell cell, string key)
@@ -400,8 +464,10 @@ public sealed class EditorSession
         PendingObject = CreateEditableObject(placedObject);
         SelectedObjectType = PendingObject.Type;
         BuildObjectArmed = false;
+        PendingObject.Rotation = ConstrainRotation(PendingObject.Type, PendingObject.Rotation);
         SelectedRotation = PendingObject.Rotation;
         SelectedCell = cell;
+        FreeRotationEnabled = false;
     }
 
     private void ClearPendingSelection(bool notify = true)
@@ -409,6 +475,8 @@ public sealed class EditorSession
         PendingObject = null;
         EditingObjectKey = null;
         SelectedCell = null;
+        FreeRotationEnabled = false;
+        _isFreeRotating = false;
         if (notify)
         {
             NotifyChanged();
@@ -452,7 +520,66 @@ public sealed class EditorSession
     private static EditorRenderObject CreateRenderObject(EditorObjectInstance instance, double opacity) => new(
         CatalogTypeFor(instance.Type), instance.X, instance.Y, instance.Rotation, opacity);
 
-    private static EditorObjectInstance CreatePendingObject(string type, int x, int y, int rotation)
+    private bool IsOverFreeRotationHandle(double x, double y)
+    {
+        if (PendingObject is null)
+        {
+            return false;
+        }
+
+        var (handleX, handleY) = FreeRotationHandlePosition();
+        var hitRadius = Math.Clamp(CellSize * 1.15, 28, 58);
+        var deltaX = x - handleX;
+        var deltaY = y - handleY;
+        return Math.Sqrt(deltaX * deltaX + deltaY * deltaY) <= hitRadius;
+    }
+
+    private void UpdateFreeRotation(double x, double y)
+    {
+        if (PendingObject is null || !CanFreeRotate)
+        {
+            return;
+        }
+
+        var centerX = (PendingObject.X + 0.5 - OffsetX) * CellSize;
+        var centerY = GridToScreenY(PendingObject.Y + 0.5);
+        var rotation = Math.Atan2(y - centerY, x - centerX) * 180 / Math.PI + 90;
+        SelectedRotation = Math.Round(NormalizeRotation(rotation), 3);
+        PendingObject.Rotation = SelectedRotation;
+    }
+
+    private (double X, double Y) FreeRotationHandlePosition()
+    {
+        var centerX = (PendingObject!.X + 0.5 - OffsetX) * CellSize;
+        var centerY = GridToScreenY(PendingObject.Y + 0.5);
+        var radians = (SelectedRotation - 90) * Math.PI / 180;
+        var radius = FreeRotationRadiusCells * CellSize;
+        return (centerX + Math.Cos(radians) * radius, centerY + Math.Sin(radians) * radius);
+    }
+
+    private static double NormalizeRotation(double rotation)
+    {
+        var normalized = rotation % 360;
+        return normalized < 0 ? normalized + 360 : normalized;
+    }
+
+    private double ConstrainRotation(string type, double rotation)
+    {
+        if (!_definitionByType.TryGetValue(CatalogTypeFor(type), out var definition))
+        {
+            return 0;
+        }
+
+        return definition.RotationMode switch
+        {
+            EditorObjectRotationMode.None => 0,
+            EditorObjectRotationMode.QuarterTurns =>
+                NormalizeRotation(Math.Round(rotation / 90) * 90),
+            _ => NormalizeRotation(rotation)
+        };
+    }
+
+    private static EditorObjectInstance CreatePendingObject(string type, int x, int y, double rotation)
     {
         var pendingObject = new EditorObjectInstance { Type = type, X = x, Y = y, Rotation = rotation };
         if (type == ColorTriggerType)

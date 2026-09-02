@@ -1,6 +1,8 @@
 namespace GeometryDashPlace.Web.Components.Editor.State;
 
-public sealed record EditorRenderObject(string CatalogType, int X, int Y, int Rotation, double Opacity);
+public sealed record EditorRenderObject(string CatalogType, int X, int Y, double Rotation, double Opacity);
+
+public sealed record FreeRotationGuide(int X, int Y, double Rotation, double RadiusCells);
 
 public sealed record EditorRenderSnapshot(
     double Width,
@@ -16,4 +18,5 @@ public sealed record EditorRenderSnapshot(
     int ObjectTextureUnit,
     IReadOnlyList<EditorRenderObject> Objects,
     EditorCell? HoverCell,
-    EditorCell? SelectedCell);
+    EditorCell? SelectedCell,
+    FreeRotationGuide? RotationGuide);

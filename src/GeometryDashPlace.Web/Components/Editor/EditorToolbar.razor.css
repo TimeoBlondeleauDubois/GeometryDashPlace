@@ -30,11 +30,6 @@
     font-size: clamp(0.82rem, 1.2vw, 1rem);
 }
 
-.palette-heading small {
-    color: #ffec55;
-    font-weight: 700;
-}
-
 .palette-pages {
     position: absolute;
     bottom: 4px;

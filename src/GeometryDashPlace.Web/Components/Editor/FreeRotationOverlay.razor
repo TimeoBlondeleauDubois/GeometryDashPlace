@@ -1,0 +1,43 @@
+@if (Editor.FreeRotationEnabled && Editor.PendingObject is not null && Editor.CanFreeRotate)
+{
+    <label class="free-rotation-value" style="@PositionStyle">
+        <input type="number"
+               value="@Editor.RotationValueText"
+               min="0"
+               max="359.999"
+               step="0.001"
+               inputmode="decimal"
+               aria-label="Rotation in degrees"
+               @oninput="HandleRotationInput" />
+    </label>
+}
+
+@code {
+    private const double FieldWidth = 108;
+
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+
+    private string PositionStyle
+    {
+        get
+        {
+            var pending = Editor.PendingObject!;
+            var centerX = (pending.X + 0.5 - Editor.OffsetX) * Editor.CellSize;
+            var centerY = Editor.GroundBaseline - (pending.Y + 0.5 - Editor.OffsetY) * Editor.CellSize;
+            var radius = EditorSession.FreeRotationRadiusCells * Editor.CellSize;
+            var gap = Math.Max(18, Editor.CellSize * 1.2);
+            var rightPosition = centerX + radius + gap;
+            var leftPosition = centerX - radius - gap - FieldWidth;
+            var left = rightPosition + FieldWidth <= Editor.Width - 10 ? rightPosition : leftPosition;
+
+            left = Math.Clamp(left, 10, Math.Max(10, Editor.Width - FieldWidth - 10));
+            var top = Math.Clamp(centerY, 34, Math.Max(34, Editor.Height - 34));
+
+            return FormattableString.Invariant($"left: {left:0.###}px; top: {top:0.###}px;");
+        }
+    }
+
+    private void HandleRotationInput(ChangeEventArgs eventArgs) =>
+        Editor.SetPendingRotation(eventArgs.Value?.ToString());
+}
