@@ -2,7 +2,7 @@
     <EditorModeTabs />
 
     <header class="palette-heading">
-        <strong>@Editor.SelectedObjectName</strong>
+        <strong><GeometryDashText Text="@Editor.SelectedObjectName" Height="23" /></strong>
     </header>
 
     <ObjectPalette />
@@ -11,7 +11,7 @@
     <PlacementConfirmation />
 
     <div class="palette-pages" hidden="@(Editor.Mode != EditorMode.Build)" aria-live="polite">
-        @Editor.PalettePageText
+        <GeometryDashText Text="@Editor.PalettePageText" Height="16" />
     </div>
 </section>
 

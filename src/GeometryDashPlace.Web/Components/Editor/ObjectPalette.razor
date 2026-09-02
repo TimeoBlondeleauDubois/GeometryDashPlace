@@ -25,7 +25,9 @@
                 <img src="@definition.ImagePath" alt="" draggable="false" />
                 @if (definition.Label is not null)
                 {
-                    <span class="trigger-label" aria-hidden="true">@definition.Label</span>
+                    <span class="trigger-label" aria-hidden="true">
+                        <GeometryDashText Text="@definition.Label" Height="12" />
+                    </span>
                 }
             </button>
         }

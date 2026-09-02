@@ -185,8 +185,8 @@ function drawObject(context, instance, state, object, gridToScreenX, gridToScree
         return;
     }
 
-    const width = state.cellSize * image.naturalWidth / state.objectTextureUnit;
-    const height = state.cellSize * image.naturalHeight / state.objectTextureUnit;
+    const width = state.cellSize * image.naturalWidth / state.objectTextureUnit * object.scaleX;
+    const height = state.cellSize * image.naturalHeight / state.objectTextureUnit * object.scaleY;
     let centerX = gridToScreenX(object.x + 0.5);
     let centerY = gridToScreenY(object.y + 0.5);
     const offset = definition.yOffset / 30 * state.cellSize;

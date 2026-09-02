@@ -103,6 +103,20 @@
     filter: brightness(1.16);
 }
 
+.movement-buttons .scale-object-button {
+    padding: 6px;
+}
+
+.movement-buttons .scale-object-button > img {
+    max-width: 82%;
+    max-height: 82%;
+}
+
+.movement-buttons .scale-object-button.is-selected {
+    transform: scale(0.94);
+    filter: brightness(1.16);
+}
+
 @media (max-width: 760px) {
     .pending-position {
         display: none;
@@ -122,5 +136,9 @@
 
     .movement-buttons .free-rotation-button {
         padding: 5px;
+    }
+
+    .movement-buttons .scale-object-button {
+        padding: 4px;
     }
 }

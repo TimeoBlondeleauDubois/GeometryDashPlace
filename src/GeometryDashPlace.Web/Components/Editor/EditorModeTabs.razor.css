@@ -89,4 +89,8 @@
         box-shadow: 0 3px 0 rgb(0 0 0 / 58%);
         font-size: 0.68rem;
     }
+
+    .mode-label {
+        transform: scale(0.7);
+    }
 }
