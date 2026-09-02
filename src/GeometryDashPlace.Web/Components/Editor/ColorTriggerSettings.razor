@@ -5,24 +5,24 @@
 <section class="color-trigger-settings"
          aria-label="Color trigger settings"
          hidden="@(!Editor.IsColorTriggerSelected)">
-    <strong>COLOR TRIGGER</strong>
+    <strong><GeometryDashText Text="COLOR TRIGGER" Height="16" /></strong>
 
     <div class="color-target-field">
-        <span>Target</span>
+        <span><GeometryDashText Text="TARGET" Height="11" /></span>
         <div class="color-target-options">
             <button class="@(Editor.ColorTarget == "background" ? "is-active" : null)"
                     type="button"
                     aria-pressed="@(Editor.ColorTarget == "background")"
-                    @onclick="SelectBackground">BG</button>
+                    @onclick="SelectBackground"><GeometryDashText Text="BG" Height="10" /></button>
             <button class="@(Editor.ColorTarget == "ground" ? "is-active" : null)"
                     type="button"
                     aria-pressed="@(Editor.ColorTarget == "ground")"
-                    @onclick="SelectGround">GROUND</button>
+                    @onclick="SelectGround"><GeometryDashText Text="GROUND" Height="10" /></button>
         </div>
     </div>
 
     <div class="color-value-field">
-        <span>Color</span>
+        <span><GeometryDashText Text="COLOR" Height="11" /></span>
 
         <div class="gd-color-picker"
              @ref="_colorWheel"
@@ -89,7 +89,7 @@
     </div>
 
     <label class="duration-field">
-        <span>Duration</span>
+        <span><GeometryDashText Text="DURATION" Height="11" /></span>
         <input type="number"
                value="@Editor.ColorDuration.ToString(CultureInfo.InvariantCulture)"
                min="0"
@@ -97,7 +97,7 @@
                inputmode="decimal"
                @oninput="HandleDurationInput"
                aria-label="Color transition duration in seconds" />
-        <small>second(s)</small>
+        <small><GeometryDashText Text="SECOND(S)" Height="9" /></small>
     </label>
 </section>
 

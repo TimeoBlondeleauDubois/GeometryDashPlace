@@ -47,7 +47,7 @@ public static class EditorObjectCatalog
         new("very_fast_speed", "Very fast speed", "/assets/objects/speeds/speed-very-fast.png"),
         new("extremely_fast_speed", "Extremely fast speed", "/assets/objects/speeds/speed-extremely-fast.png"),
         new("color_trigger", "Color trigger", "/assets/objects/triggers/trigger-color.png",
-            RotationMode: EditorObjectRotationMode.None)
+            RotationMode: EditorObjectRotationMode.None, CanScale: false)
     ];
 
     private static EditorObjectDefinition StaticBlock(

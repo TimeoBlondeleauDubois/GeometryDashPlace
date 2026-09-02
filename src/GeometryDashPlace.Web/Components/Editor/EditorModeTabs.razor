@@ -4,7 +4,7 @@
             aria-pressed="@(Editor.Mode == EditorMode.Build)"
             @onclick="() => Editor.SetMode(EditorMode.Build)">
         <span class="mode-decoration mode-decoration-build" aria-hidden="true"></span>
-        <span class="mode-label">CRÉER</span>
+        <span class="mode-label"><GeometryDashText Text="CREATE" Height="24" /></span>
     </button>
     <button class="@(Editor.Mode == EditorMode.Edit ? "is-active" : null)"
             type="button"
@@ -14,7 +14,7 @@
              src="/assets/ui/editor/modes/edit-tools.png"
              alt=""
              aria-hidden="true" />
-        <span class="mode-label">ÉDITER</span>
+        <span class="mode-label"><GeometryDashText Text="EDIT" Height="24" /></span>
     </button>
     <DeleteSelection />
 </nav>

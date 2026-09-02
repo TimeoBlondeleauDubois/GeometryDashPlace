@@ -13,6 +13,7 @@ public sealed record EditorObjectDefinition(
     string ImagePath,
     double YOffset = 0,
     EditorObjectRotationMode RotationMode = EditorObjectRotationMode.Free,
+    bool CanScale = true,
     string? Label = null)
 {
     public bool CanRotate => RotationMode is not EditorObjectRotationMode.None;

@@ -9,6 +9,9 @@
                inputmode="decimal"
                aria-label="Rotation in degrees"
                @oninput="HandleRotationInput" />
+        <span class="free-rotation-display">
+            <GeometryDashText Text="@Editor.RotationValueText" Height="22" />
+        </span>
     </label>
 }
 

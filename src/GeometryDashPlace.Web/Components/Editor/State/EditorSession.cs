@@ -12,6 +12,8 @@ public sealed class EditorSession
     public const double FreeRotationRadiusCells = 5;
     public const double MinimumZoom = 0.5;
     public const double MaximumZoom = 3;
+    public const double MinimumObjectScale = 0.5;
+    public const double MaximumObjectScale = 2;
     public const string BackgroundTexturePath = "/assets/environment/backgrounds/classic-square.png";
     public const string GroundTexturePath = "/assets/environment/grounds/classic-square.png";
     public const string FreeRotationHandlePath = "/assets/ui/editor/transforms/free-rotation-handle.png";
@@ -53,10 +55,12 @@ public sealed class EditorSession
     public double SelectedRotation { get; private set; }
     public int PalettePage { get; private set; }
     public bool FreeRotationEnabled { get; private set; }
+    public bool ScaleModeEnabled { get; private set; }
     public bool HasPendingObject => PendingObject is not null;
     public bool CanDelete => EditingObjectKey is not null && _objects.ContainsKey(EditingObjectKey);
     public bool CanRotate => PendingObject is not null && SelectedDefinition?.CanRotate is true;
     public bool CanFreeRotate => PendingObject is not null && SelectedDefinition?.CanFreeRotate is true;
+    public bool CanScale => PendingObject is not null && SelectedDefinition?.CanScale is true;
     public bool IsColorTriggerSelected => PendingObject?.Type == ColorTriggerType;
     public int ObjectCount => _objects.Count;
     public int PalettePageCount => Math.Max(1, (int)Math.Ceiling((double)_definitions.Count / PalettePageSize));
@@ -66,11 +70,13 @@ public sealed class EditorSession
     public double TimelineProgress => Math.Clamp(HorizontalTravelCells() > 0 ? OffsetX / HorizontalTravelCells() : 0, 0, 1);
     public string CoordinateText => HoverCell is { } hover
         ? $"Cell {hover.X}, {hover.Y}"
-        : SelectedCell is { } selected ? $"Cell {selected.X}, {selected.Y}" : "Cell —";
+        : SelectedCell is { } selected ? $"Cell {selected.X}, {selected.Y}" : "Cell -";
     public string ZoomText => $"Zoom {Math.Round(Zoom * 100)} %";
     public string ObjectCountText => $"{ObjectCount} object{(ObjectCount == 1 ? string.Empty : "s")}";
     public string SelectedObjectName => ActiveDefinition?.Name ?? "Select an object";
     public string RotationValueText => SelectedRotation.ToString("0.###", CultureInfo.InvariantCulture);
+    public string ScaleXValueText => (PendingObject?.ScaleX ?? 1).ToString("0.000", CultureInfo.InvariantCulture);
+    public string ScaleYValueText => (PendingObject?.ScaleY ?? 1).ToString("0.000", CultureInfo.InvariantCulture);
     public string ColorTarget => PendingObject?.ColorTarget ?? "background";
     public string ColorHex => PendingObject is null
         ? "#FFFFFF"
@@ -120,6 +126,7 @@ public sealed class EditorSession
         if (mode != EditorMode.Edit)
         {
             FreeRotationEnabled = false;
+            ScaleModeEnabled = false;
         }
         NotifyChanged();
     }
@@ -135,6 +142,7 @@ public sealed class EditorSession
         BuildObjectArmed = true;
         SelectedRotation = 0;
         FreeRotationEnabled = false;
+        ScaleModeEnabled = false;
 
         if (PendingObject is not null)
         {
@@ -205,6 +213,20 @@ public sealed class EditorSession
         }
 
         FreeRotationEnabled = !FreeRotationEnabled;
+        ScaleModeEnabled = false;
+        _isFreeRotating = false;
+        NotifyChanged();
+    }
+
+    public void ToggleScaleMode()
+    {
+        if (!CanScale)
+        {
+            return;
+        }
+
+        ScaleModeEnabled = !ScaleModeEnabled;
+        FreeRotationEnabled = false;
         _isFreeRotating = false;
         NotifyChanged();
     }
@@ -221,6 +243,10 @@ public sealed class EditorSession
         PendingObject.Rotation = SelectedRotation;
         NotifyChanged();
     }
+
+    public void SetPendingScaleX(string? value) => SetPendingScale(value, horizontal: true);
+
+    public void SetPendingScaleY(string? value) => SetPendingScale(value, horizontal: false);
 
     public void ConfirmPlacement()
     {
@@ -242,6 +268,7 @@ public sealed class EditorSession
         EditingObjectKey = null;
         SelectedCell = null;
         FreeRotationEnabled = false;
+        ScaleModeEnabled = false;
         Mode = EditorMode.Build;
         NotifyChanged();
     }
@@ -437,6 +464,9 @@ public sealed class EditorSession
             PendingObject = null;
             EditingObjectKey = null;
             SelectedCell = cell;
+            FreeRotationEnabled = false;
+            ScaleModeEnabled = false;
+            _isFreeRotating = false;
         }
         else
         {
@@ -455,6 +485,7 @@ public sealed class EditorSession
         PendingObject = CreatePendingObject(SelectedObjectType, cell.X, cell.Y, SelectedRotation);
         SelectedCell = cell;
         FreeRotationEnabled = false;
+        ScaleModeEnabled = false;
     }
 
     private void SelectPlacedObject(EditorCell cell, string key)
@@ -468,6 +499,7 @@ public sealed class EditorSession
         SelectedRotation = PendingObject.Rotation;
         SelectedCell = cell;
         FreeRotationEnabled = false;
+        ScaleModeEnabled = false;
     }
 
     private void ClearPendingSelection(bool notify = true)
@@ -476,6 +508,7 @@ public sealed class EditorSession
         EditingObjectKey = null;
         SelectedCell = null;
         FreeRotationEnabled = false;
+        ScaleModeEnabled = false;
         _isFreeRotating = false;
         if (notify)
         {
@@ -517,8 +550,30 @@ public sealed class EditorSession
         ? (totalCells - visibleCells) / 2
         : Math.Clamp(value, 0, totalCells - visibleCells);
 
+    private void SetPendingScale(string? value, bool horizontal)
+    {
+        if (!CanScale || PendingObject is null ||
+            !double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var scale))
+        {
+            return;
+        }
+
+        scale = Math.Round(Math.Clamp(scale, MinimumObjectScale, MaximumObjectScale), 3);
+        if (horizontal)
+        {
+            PendingObject.ScaleX = scale;
+        }
+        else
+        {
+            PendingObject.ScaleY = scale;
+        }
+
+        NotifyChanged();
+    }
+
     private static EditorRenderObject CreateRenderObject(EditorObjectInstance instance, double opacity) => new(
-        CatalogTypeFor(instance.Type), instance.X, instance.Y, instance.Rotation, opacity);
+        CatalogTypeFor(instance.Type), instance.X, instance.Y, instance.Rotation,
+        instance.ScaleX, instance.ScaleY, opacity);
 
     private bool IsOverFreeRotationHandle(double x, double y)
     {

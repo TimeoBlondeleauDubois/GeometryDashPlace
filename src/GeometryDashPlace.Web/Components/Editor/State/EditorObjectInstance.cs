@@ -6,6 +6,8 @@ public sealed class EditorObjectInstance
     public int X { get; set; }
     public int Y { get; set; }
     public double Rotation { get; set; }
+    public double ScaleX { get; set; } = 1;
+    public double ScaleY { get; set; } = 1;
     public string? ColorTarget { get; set; }
     public int Red { get; set; } = 255;
     public int Green { get; set; } = 255;
@@ -18,6 +20,8 @@ public sealed class EditorObjectInstance
         X = X,
         Y = Y,
         Rotation = Rotation,
+        ScaleX = ScaleX,
+        ScaleY = ScaleY,
         ColorTarget = ColorTarget,
         Red = Red,
         Green = Green,

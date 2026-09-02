@@ -1,0 +1,17 @@
+.geometry-dash-text {
+    display: inline-flex;
+    flex: none;
+}
+
+.glyph-slot {
+    position: relative;
+    display: block;
+    flex: none;
+}
+
+.glyph-image {
+    position: absolute;
+    display: block;
+    background-image: url('/assets/ui/fonts/geometry-dash-big.png');
+    background-repeat: no-repeat;
+}

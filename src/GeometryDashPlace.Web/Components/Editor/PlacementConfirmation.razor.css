@@ -84,5 +84,6 @@
 
     .confirm-placement-area small {
         font-size: 0.52rem;
+        transform: scale(0.65);
     }
 }

@@ -2,9 +2,9 @@
          hidden="@(Editor.Mode != EditorMode.Edit)"
          aria-label="Selected object position">
     <span class="pending-position">
-        @(Editor.PendingObject is null
+        <GeometryDashText Text="@(Editor.PendingObject is null
             ? "Select a cell"
-            : $"Preview: cell {Editor.PendingObject.X}, {Editor.PendingObject.Y}")
+            : $"Preview: cell {Editor.PendingObject.X}, {Editor.PendingObject.Y}")" Height="15" />
     </span>
     <div class="movement-buttons">
         <button type="button" aria-label="Move up one cell"
@@ -51,6 +51,15 @@
                 disabled="@(!Editor.CanFreeRotate)"
                 @onclick="Editor.ToggleFreeRotation">
             <img src="/assets/ui/editor/modes/mode-free-rotate.png" alt="" draggable="false" />
+        </button>
+        <button class="scale-object-button @(Editor.ScaleModeEnabled ? "is-selected" : null)"
+                type="button"
+                title="Scale X/Y"
+                aria-label="Toggle X and Y scale controls"
+                aria-pressed="@Editor.ScaleModeEnabled"
+                disabled="@(!Editor.CanScale)"
+                @onclick="Editor.ToggleScaleMode">
+            <img src="/assets/ui/editor/modes/mode-scale-xy.png" alt="" draggable="false" />
         </button>
     </div>
 </section>
