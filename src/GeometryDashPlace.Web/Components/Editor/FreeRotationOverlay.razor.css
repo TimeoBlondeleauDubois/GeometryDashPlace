@@ -1,0 +1,42 @@
+.free-rotation-value {
+    position: absolute;
+    z-index: 7;
+    box-sizing: border-box;
+    display: grid;
+    width: 108px;
+    height: 54px;
+    padding: 4px 9px;
+    border: 2px solid rgb(73 132 199 / 72%);
+    border-radius: 11px;
+    background: rgb(8 28 58 / 78%);
+    box-shadow: 0 3px 0 rgb(0 0 0 / 28%);
+    transform: translateY(-50%);
+    user-select: text;
+}
+
+.free-rotation-value input {
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #fff;
+    font: inherit;
+    font-size: 1.18rem;
+    font-weight: 900;
+    text-align: center;
+    text-shadow: 1px 2px 0 #000;
+    appearance: textfield;
+}
+
+.free-rotation-value input::-webkit-inner-spin-button,
+.free-rotation-value input::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+}
+
+.free-rotation-value:focus-within {
+    border-color: #fff;
+    box-shadow: 0 0 0 2px rgb(32 196 255 / 82%), 0 3px 0 rgb(0 0 0 / 28%);
+}

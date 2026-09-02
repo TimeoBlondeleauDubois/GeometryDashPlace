@@ -89,6 +89,20 @@
     max-height: 62%;
 }
 
+.movement-buttons .free-rotation-button {
+    padding: 10px;
+}
+
+.movement-buttons .free-rotation-button > img {
+    max-width: 74%;
+    max-height: 74%;
+}
+
+.movement-buttons .free-rotation-button.is-selected {
+    transform: scale(0.94);
+    filter: brightness(1.16);
+}
+
 @media (max-width: 760px) {
     .pending-position {
         display: none;
@@ -104,5 +118,9 @@
         width: 36px;
         height: 36px;
         padding: 7px;
+    }
+
+    .movement-buttons .free-rotation-button {
+        padding: 5px;
     }
 }

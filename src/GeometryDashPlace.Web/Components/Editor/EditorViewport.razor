@@ -14,6 +14,7 @@
         @onwheel="HandleWheel"
         @onwheel:preventDefault="true"></canvas>
 
+<FreeRotationOverlay />
 <LevelTimeline />
 <ZoomControls />
 <EditorStatus />
@@ -47,6 +48,7 @@
         {
             backgroundTexturePath = EditorSession.BackgroundTexturePath,
             groundTexturePath = EditorSession.GroundTexturePath,
+            freeRotationHandlePath = EditorSession.FreeRotationHandlePath,
             definitions = Editor.Definitions.Select(definition => new
             {
                 type = definition.Type,
