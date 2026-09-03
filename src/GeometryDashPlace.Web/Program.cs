@@ -1,9 +1,32 @@
+using DotNetEnv;
 using GeometryDashPlace.Web.Components;
+using GeometryDashPlace.Web.Persistence;
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
+Env.Load(Path.Combine(builder.Environment.ContentRootPath, ".env"));
+
+builder.Configuration
+    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
+    .AddEnvironmentVariables();
+
+var dbHost = builder.Configuration["DB_HOST"] ?? "localhost";
+var dbPort = builder.Configuration["DB_PORT"] ?? "21556";
+var dbUser = builder.Configuration["DB_USERNAME"] ?? "geometrydashplace";
+var dbPassword = builder.Configuration["DB_PASSWORD"] ?? "password";
+var dbName = builder.Configuration["DB_NAME"] ?? "geometry_dash_place";
+
+var connectionString = builder.Environment.IsDevelopment()
+    ? $"Host=localhost;Port={dbPort};Username={dbUser};Password={dbPassword};Database={dbName};Include Error Detail=true"
+    : $"Host={dbHost};Port={dbPort};Username={dbUser};Password={dbPassword};Database={dbName}";
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
+builder.Services.AddScoped<ILevelRepository, PostgresLevelRepository>();
 
 var app = builder.Build();
 
@@ -18,6 +41,7 @@ app.UseHttpsRedirection();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapLevelEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
