@@ -6,6 +6,7 @@ public interface ILevelRepository
 
     Task<LevelMutation> PlaceAsync(
         Guid eventId,
+        Guid userId,
         int x,
         int y,
         PlaceLevelCellRequest request,
@@ -13,8 +14,17 @@ public interface ILevelRepository
 
     Task<LevelMutation> DeleteAsync(
         Guid eventId,
+        Guid userId,
         int x,
         int y,
         DeleteLevelCellRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<LevelMutation> MoveAsync(
+        Guid eventId,
+        Guid userId,
+        int sourceX,
+        int sourceY,
+        MoveLevelCellRequest request,
         CancellationToken cancellationToken = default);
 }

@@ -32,12 +32,13 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
 
     public async Task<LevelMutation> PlaceAsync(
         Guid eventId,
+        Guid userId,
         int x,
         int y,
         PlaceLevelCellRequest request,
         CancellationToken cancellationToken = default)
     {
-        ValidateIdentifiers(eventId, request.UserId, request.RequestId);
+        ValidateIdentifiers(eventId, userId, request.RequestId);
         if (string.IsNullOrWhiteSpace(request.Type))
         {
             throw new LevelPersistenceException(
@@ -52,7 +53,7 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
         try
         {
             if (await ReadReplayAsync(connection, transaction, eventId, x, y,
-                    request.UserId, request.RequestId, request, cancellationToken) is { } replay)
+                    userId, request.RequestId, request, cancellationToken) is { } replay)
             {
                 await transaction.CommitAsync(cancellationToken);
                 return replay;
@@ -62,27 +63,27 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
             ValidateEvent(eventState);
             ValidateCoordinates(x, y, eventState);
 
-            var user = await ReadUserAsync(connection, transaction, request.UserId, cancellationToken);
+            var user = await ReadUserAsync(connection, transaction, userId, cancellationToken);
             var objectType = await ReadObjectTypeAsync(connection, transaction, request.Type, cancellationToken);
             ValidatePlacement(request, objectType);
             await EnsureCooldownExpiredAsync(connection, transaction, eventId,
-                request.UserId, cancellationToken);
+                userId, cancellationToken);
 
             var previous = await ReadCellAsync(connection, transaction, eventId, x, y,
                 lockRow: true, cancellationToken);
             var revision = await IncrementRevisionAsync(connection, transaction, eventId, cancellationToken);
             var placedAt = await UpsertCellAsync(connection, transaction, eventId, x, y,
-                request, revision, cancellationToken);
+                userId, request, revision, cancellationToken);
             var cell = new LevelCell(
                 x, y, request.Type, request.Rotation, request.ScaleX, request.ScaleY,
                 request.Red, request.Green, request.Blue, request.Duration,
-                request.UserId, user.DisplayName, revision, placedAt);
+                userId, user.DisplayName, revision, placedAt);
             var action = previous is null ? "place" : "replace";
 
-            await InsertHistoryAsync(connection, transaction, eventId, request.UserId,
+            await InsertHistoryAsync(connection, transaction, eventId, userId,
                 request.RequestId, x, y, action, previous, cell, revision, cancellationToken);
             var nextPlacementAt = await AdvanceCooldownAsync(connection, transaction,
-                eventId, request.UserId, eventState.CooldownSeconds, cancellationToken);
+                eventId, userId, eventState.CooldownSeconds, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return new LevelMutation(action, revision, nextPlacementAt, cell);
@@ -99,12 +100,13 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
 
     public async Task<LevelMutation> DeleteAsync(
         Guid eventId,
+        Guid userId,
         int x,
         int y,
         DeleteLevelCellRequest request,
         CancellationToken cancellationToken = default)
     {
-        ValidateIdentifiers(eventId, request.UserId, request.RequestId);
+        ValidateIdentifiers(eventId, userId, request.RequestId);
 
         await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
         await using var transaction = await connection.BeginTransactionAsync(
@@ -113,7 +115,7 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
         try
         {
             if (await ReadReplayAsync(connection, transaction, eventId, x, y,
-                    request.UserId, request.RequestId, placement: null, cancellationToken) is { } replay)
+                    userId, request.RequestId, placement: null, cancellationToken) is { } replay)
             {
                 await transaction.CommitAsync(cancellationToken);
                 return replay;
@@ -122,9 +124,9 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
             var eventState = await LockEventAsync(connection, transaction, eventId, cancellationToken);
             ValidateEvent(eventState);
             ValidateCoordinates(x, y, eventState);
-            _ = await ReadUserAsync(connection, transaction, request.UserId, cancellationToken);
+            _ = await ReadUserAsync(connection, transaction, userId, cancellationToken);
             await EnsureCooldownExpiredAsync(connection, transaction, eventId,
-                request.UserId, cancellationToken);
+                userId, cancellationToken);
 
             var previous = await ReadCellAsync(connection, transaction, eventId, x, y,
                 lockRow: true, cancellationToken)
@@ -132,23 +134,109 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
                     "cell_not_found", "There is no object in this cell.", StatusCodes.Status404NotFound);
             var revision = await IncrementRevisionAsync(connection, transaction, eventId, cancellationToken);
 
-            await using (var deleteCommand = new NpgsqlCommand(
-                "DELETE FROM level_cells WHERE event_id = @event_id AND x = @x AND y = @y",
-                connection, transaction))
-            {
-                deleteCommand.Parameters.AddWithValue("event_id", eventId);
-                deleteCommand.Parameters.AddWithValue("x", x);
-                deleteCommand.Parameters.AddWithValue("y", y);
-                await deleteCommand.ExecuteNonQueryAsync(cancellationToken);
-            }
+            await DeleteCellAsync(connection, transaction, eventId, x, y, cancellationToken);
 
-            await InsertHistoryAsync(connection, transaction, eventId, request.UserId,
+            await InsertHistoryAsync(connection, transaction, eventId, userId,
                 request.RequestId, x, y, "delete", previous, null, revision, cancellationToken);
             var nextPlacementAt = await AdvanceCooldownAsync(connection, transaction,
-                eventId, request.UserId, eventState.CooldownSeconds, cancellationToken);
+                eventId, userId, eventState.CooldownSeconds, cancellationToken);
 
             await transaction.CommitAsync(cancellationToken);
             return new LevelMutation("delete", revision, nextPlacementAt, null);
+        }
+        catch (PostgresException exception)
+            when (exception.SqlState == PostgresErrorCodes.SerializationFailure)
+        {
+            throw new LevelPersistenceException(
+                "concurrent_update",
+                "The level changed concurrently. Retry the request with the same requestId.",
+                StatusCodes.Status409Conflict);
+        }
+    }
+
+    public async Task<LevelMutation> MoveAsync(
+        Guid eventId,
+        Guid userId,
+        int sourceX,
+        int sourceY,
+        MoveLevelCellRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ValidateIdentifiers(eventId, userId, request.RequestId);
+        if (string.IsNullOrWhiteSpace(request.Type))
+        {
+            throw new LevelPersistenceException(
+                "invalid_object_type", "The object type is required.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        if (sourceX == request.TargetX && sourceY == request.TargetY)
+        {
+            throw new LevelPersistenceException(
+                "same_move_cell", "The source and target cells must be different.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        var placement = request.ToPlacement();
+        await using var connection = await dataSource.OpenConnectionAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(
+            IsolationLevel.Serializable, cancellationToken);
+
+        try
+        {
+            if (await ReadMoveReplayAsync(connection, transaction, eventId, userId,
+                    sourceX, sourceY, request, cancellationToken) is { } replay)
+            {
+                await transaction.CommitAsync(cancellationToken);
+                return replay;
+            }
+
+            var eventState = await LockEventAsync(connection, transaction, eventId, cancellationToken);
+            ValidateEvent(eventState);
+            ValidateCoordinates(sourceX, sourceY, eventState);
+            ValidateCoordinates(request.TargetX, request.TargetY, eventState);
+
+            var user = await ReadUserAsync(connection, transaction, userId, cancellationToken);
+            var objectType = await ReadObjectTypeAsync(
+                connection, transaction, request.Type, cancellationToken);
+            ValidatePlacement(placement, objectType);
+            await EnsureCooldownExpiredAsync(
+                connection, transaction, eventId, userId, cancellationToken);
+
+            var source = await ReadCellAsync(
+                connection, transaction, eventId, sourceX, sourceY,
+                lockRow: true, cancellationToken)
+                ?? throw new LevelPersistenceException(
+                    "source_cell_not_found", "There is no object in the source cell.",
+                    StatusCodes.Status404NotFound);
+            var replaced = await ReadCellAsync(
+                connection, transaction, eventId, request.TargetX, request.TargetY,
+                lockRow: true, cancellationToken);
+            var revision = await IncrementRevisionAsync(
+                connection, transaction, eventId, cancellationToken);
+
+            await DeleteCellAsync(
+                connection, transaction, eventId, sourceX, sourceY, cancellationToken);
+            var placedAt = await UpsertCellAsync(
+                connection, transaction, eventId, request.TargetX, request.TargetY,
+                userId, placement, revision, cancellationToken);
+            var cell = new LevelCell(
+                request.TargetX, request.TargetY, request.Type,
+                request.Rotation, request.ScaleX, request.ScaleY,
+                request.Red, request.Green, request.Blue, request.Duration,
+                userId, user.DisplayName, revision, placedAt);
+            var action = replaced is null ? "move" : "move_replace";
+
+            await InsertHistoryAsync(
+                connection, transaction, eventId, userId, request.RequestId,
+                request.TargetX, request.TargetY, action, source, cell, revision,
+                cancellationToken, sourceX, sourceY, replaced);
+            var nextPlacementAt = await AdvanceCooldownAsync(
+                connection, transaction, eventId, userId,
+                eventState.CooldownSeconds, cancellationToken);
+
+            await transaction.CommitAsync(cancellationToken);
+            return new LevelMutation(action, revision, nextPlacementAt, cell);
         }
         catch (PostgresException exception)
             when (exception.SqlState == PostgresErrorCodes.SerializationFailure)
@@ -345,6 +433,7 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
         Guid eventId,
         int x,
         int y,
+        Guid userId,
         PlaceLevelCellRequest request,
         long revision,
         CancellationToken cancellationToken)
@@ -384,10 +473,27 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
         AddNullableSmallInt(command, "green", request.Green);
         AddNullableSmallInt(command, "blue", request.Blue);
         AddNullableNumeric(command, "duration", request.Duration);
-        command.Parameters.AddWithValue("user_id", request.UserId);
+        command.Parameters.AddWithValue("user_id", userId);
         command.Parameters.AddWithValue("revision", revision);
         var result = await command.ExecuteScalarAsync(cancellationToken);
         return ToTimestamp((DateTime)result!);
+    }
+
+    private static async Task DeleteCellAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid eventId,
+        int x,
+        int y,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand(
+            "DELETE FROM level_cells WHERE event_id = @event_id AND x = @x AND y = @y",
+            connection, transaction);
+        command.Parameters.AddWithValue("event_id", eventId);
+        command.Parameters.AddWithValue("x", x);
+        command.Parameters.AddWithValue("y", y);
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static async Task InsertHistoryAsync(
@@ -402,14 +508,18 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
         LevelCell? previous,
         LevelCell? next,
         long revision,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int? sourceX = null,
+        int? sourceY = null,
+        LevelCell? replaced = null)
     {
         const string sql = """
             INSERT INTO placement_history
-                (event_id, revision, request_id, user_id, x, y, action, previous_object, new_object)
+                (event_id, revision, request_id, user_id, x, y, source_x, source_y,
+                 action, previous_object, new_object, replaced_object)
             VALUES
-                (@event_id, @revision, @request_id, @user_id, @x, @y, @action,
-                 @previous_object, @new_object)
+                (@event_id, @revision, @request_id, @user_id, @x, @y, @source_x, @source_y,
+                 @action, @previous_object, @new_object, @replaced_object)
             """;
         await using var command = new NpgsqlCommand(sql, connection, transaction);
         command.Parameters.AddWithValue("event_id", eventId);
@@ -418,10 +528,56 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
         command.Parameters.AddWithValue("user_id", userId);
         command.Parameters.AddWithValue("x", x);
         command.Parameters.AddWithValue("y", y);
+        AddNullableInteger(command, "source_x", sourceX);
+        AddNullableInteger(command, "source_y", sourceY);
         command.Parameters.AddWithValue("action", action);
         AddNullableJson(command, "previous_object", previous);
         AddNullableJson(command, "new_object", next);
+        AddNullableJson(command, "replaced_object", replaced);
         await command.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static async Task<LevelMutation?> ReadMoveReplayAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        Guid eventId,
+        Guid userId,
+        int sourceX,
+        int sourceY,
+        MoveLevelCellRequest request,
+        CancellationToken cancellationToken)
+    {
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT event_id, user_id, x, y, source_x, source_y, action, revision, new_object
+            FROM placement_history
+            WHERE request_id = @request_id
+            """, connection, transaction);
+        command.Parameters.AddWithValue("request_id", request.RequestId);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return null;
+        }
+
+        var action = reader.GetString(6);
+        var persistedCell = reader.IsDBNull(8)
+            ? null
+            : JsonSerializer.Deserialize<LevelCell>(reader.GetString(8), JsonOptions);
+        if (reader.GetGuid(0) != eventId || reader.GetGuid(1) != userId ||
+            reader.GetInt32(2) != request.TargetX || reader.GetInt32(3) != request.TargetY ||
+            reader.IsDBNull(4) || reader.GetInt32(4) != sourceX ||
+            reader.IsDBNull(5) || reader.GetInt32(5) != sourceY ||
+            action is not ("move" or "move_replace") ||
+            !PlacementMatches(request.ToPlacement(), persistedCell))
+        {
+            throw new LevelPersistenceException(
+                "request_id_conflict",
+                "This requestId was already used for a different mutation.",
+                StatusCodes.Status409Conflict);
+        }
+
+        return new LevelMutation(action, reader.GetInt64(7), null, persistedCell, IsReplay: true);
     }
 
     private static async Task<LevelMutation?> ReadReplayAsync(
@@ -613,6 +769,12 @@ public sealed class PostgresLevelRepository(NpgsqlDataSource dataSource) : ILeve
     {
         var parameter = command.Parameters.Add(name, NpgsqlDbType.Numeric);
         parameter.Value = value is { } number ? (decimal)number : DBNull.Value;
+    }
+
+    private static void AddNullableInteger(NpgsqlCommand command, string name, int? value)
+    {
+        var parameter = command.Parameters.Add(name, NpgsqlDbType.Integer);
+        parameter.Value = value is { } number ? number : DBNull.Value;
     }
 
     private static void AddNullableJson(NpgsqlCommand command, string name, LevelCell? value)
