@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using GeometryDashPlace.Web.Auth;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GeometryDashPlace.Web.Persistence;
@@ -11,8 +13,9 @@ public static class LevelEndpoints
             .WithTags("Level");
 
         level.MapGet("/", LoadAsync);
-        level.MapPut("/cells/{x:int}/{y:int}", PlaceAsync);
-        level.MapDelete("/cells/{x:int}/{y:int}", DeleteAsync);
+        level.MapPut("/cells/{x:int}/{y:int}", PlaceAsync).RequireAuthorization();
+        level.MapDelete("/cells/{x:int}/{y:int}", DeleteAsync).RequireAuthorization();
+        level.MapPost("/cells/{sourceX:int}/{sourceY:int}/move", MoveAsync).RequireAuthorization();
 
         return endpoints;
     }
@@ -37,12 +40,19 @@ public static class LevelEndpoints
         int x,
         int y,
         [FromBody] PlaceLevelCellRequest request,
+        ClaimsPrincipal principal,
         ILevelRepository repository,
         CancellationToken cancellationToken)
     {
         try
         {
-            var result = await repository.PlaceAsync(eventId, x, y, request, cancellationToken);
+            if (!AuthenticatedUser.TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await repository.PlaceAsync(
+                eventId, userId, x, y, request, cancellationToken);
             return Results.Ok(result);
         }
         catch (LevelPersistenceException exception)
@@ -56,12 +66,45 @@ public static class LevelEndpoints
         int x,
         int y,
         [FromBody] DeleteLevelCellRequest request,
+        ClaimsPrincipal principal,
         ILevelRepository repository,
         CancellationToken cancellationToken)
     {
         try
         {
-            var result = await repository.DeleteAsync(eventId, x, y, request, cancellationToken);
+            if (!AuthenticatedUser.TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await repository.DeleteAsync(
+                eventId, userId, x, y, request, cancellationToken);
+            return Results.Ok(result);
+        }
+        catch (LevelPersistenceException exception)
+        {
+            return ToProblem(exception);
+        }
+    }
+
+    private static async Task<IResult> MoveAsync(
+        Guid eventId,
+        int sourceX,
+        int sourceY,
+        [FromBody] MoveLevelCellRequest request,
+        ClaimsPrincipal principal,
+        ILevelRepository repository,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!AuthenticatedUser.TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await repository.MoveAsync(
+                eventId, userId, sourceX, sourceY, request, cancellationToken);
             return Results.Ok(result);
         }
         catch (LevelPersistenceException exception)

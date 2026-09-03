@@ -89,7 +89,8 @@ export function createColorWheel(root, input) {
     const colorPlane = root.querySelector("[data-color-wheel-plane]");
     const hueHandle = root.querySelector("[data-color-wheel-hue-handle]");
     const planeHandle = root.querySelector("[data-color-wheel-plane-handle]");
-    const selectedSwatch = root.parentElement.querySelector(".selected-color-swatch");
+    const selectedSwatch = root.closest(".color-trigger-settings")
+        ?.querySelector(".selected-color-preview");
     let hue = 0;
     let saturation = 0;
     let value = 1;
@@ -107,7 +108,9 @@ export function createColorWheel(root, input) {
 
         root.style.setProperty("--picker-color", `hsl(${hue}deg 100% 50%)`);
         root.style.setProperty("--selected-color", hexColor);
-        selectedSwatch.style.backgroundColor = hexColor;
+        if (selectedSwatch) {
+            selectedSwatch.style.backgroundColor = hexColor;
+        }
         hueHandle.style.left = `${hueX}%`;
         hueHandle.style.top = `${hueY}%`;
         planeHandle.style.left = `${(planePosition.x + 1) * 50}%`;

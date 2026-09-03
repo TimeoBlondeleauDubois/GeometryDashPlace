@@ -12,6 +12,5 @@
 .glyph-image {
     position: absolute;
     display: block;
-    background-image: url('/assets/ui/fonts/geometry-dash-big.png');
     background-repeat: no-repeat;
 }

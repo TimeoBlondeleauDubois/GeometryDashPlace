@@ -1,5 +1,7 @@
 using DotNetEnv;
+using GeometryDashPlace.Web.Auth;
 using GeometryDashPlace.Web.Components;
+using GeometryDashPlace.Web.Events;
 using GeometryDashPlace.Web.Persistence;
 using Npgsql;
 
@@ -27,6 +29,8 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
 builder.Services.AddScoped<ILevelRepository, PostgresLevelRepository>();
+builder.Services.AddScoped<ILevelEventRepository, PostgresLevelEventRepository>();
+builder.Services.AddGoogleAuthentication(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
 
@@ -35,12 +39,19 @@ if (!app.Environment.IsDevelopment())
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
 }
-app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseWhen(
+    context => !context.Request.Path.StartsWithSegments("/api"),
+    branch => branch.UseStatusCodePagesWithReExecute(
+        "/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapGoogleAuthEndpoints();
+app.MapLevelEventEndpoints();
 app.MapLevelEndpoints();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

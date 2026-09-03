@@ -30,6 +30,7 @@ public sealed class EditorSession
     private double _pointerY;
     private double _dragDistance;
     private bool _isFreeRotating;
+    private EditorMode _confirmationReturnMode = EditorMode.Build;
 
     public EditorSession(IReadOnlyList<EditorObjectDefinition> definitions)
     {
@@ -56,12 +57,16 @@ public sealed class EditorSession
     public int PalettePage { get; private set; }
     public bool FreeRotationEnabled { get; private set; }
     public bool ScaleModeEnabled { get; private set; }
+    public bool IsColorTriggerSettingsOpen { get; private set; }
     public bool HasPendingObject => PendingObject is not null;
-    public bool CanDelete => EditingObjectKey is not null && _objects.ContainsKey(EditingObjectKey);
+    public bool CanDelete => Mode == EditorMode.Delete &&
+        EditingObjectKey is not null && _objects.ContainsKey(EditingObjectKey);
+    public bool CanValidate => Mode == EditorMode.Delete ? CanDelete : HasPendingObject;
     public bool CanRotate => PendingObject is not null && SelectedDefinition?.CanRotate is true;
     public bool CanFreeRotate => PendingObject is not null && SelectedDefinition?.CanFreeRotate is true;
     public bool CanScale => PendingObject is not null && SelectedDefinition?.CanScale is true;
     public bool IsColorTriggerSelected => PendingObject?.Type == ColorTriggerType;
+    public bool CanEditColorTrigger => Mode != EditorMode.Delete && IsColorTriggerSelected;
     public int ObjectCount => _objects.Count;
     public int PalettePageCount => Math.Max(1, (int)Math.Ceiling((double)_definitions.Count / PalettePageSize));
     public string PalettePageText => $"{PalettePage + 1} / {PalettePageCount}";
@@ -81,6 +86,9 @@ public sealed class EditorSession
     public string ColorHex => PendingObject is null
         ? "#FFFFFF"
         : $"#{PendingObject.Red:X2}{PendingObject.Green:X2}{PendingObject.Blue:X2}";
+    public int ColorRed => PendingObject?.Red ?? 255;
+    public int ColorGreen => PendingObject?.Green ?? 255;
+    public int ColorBlue => PendingObject?.Blue ?? 255;
     public double ColorDuration => PendingObject?.Duration ?? 0.2;
     public bool IsColorHexInvalid { get; private set; }
     public IReadOnlyList<EditorObjectDefinition> Definitions => _definitions;
@@ -117,17 +125,41 @@ public sealed class EditorSession
 
     public void SetMode(EditorMode mode)
     {
-        if (mode == EditorMode.Build && Mode != EditorMode.Build)
+        if (mode == Mode)
+        {
+            return;
+        }
+
+        var previousMode = Mode;
+        if (mode == EditorMode.Build ||
+            mode == EditorMode.Delete ||
+            previousMode == EditorMode.Delete)
         {
             ClearPendingSelection(false);
         }
 
         Mode = mode;
+        if (mode == EditorMode.Delete)
+        {
+            BuildObjectArmed = false;
+            SelectedObjectType = null;
+        }
+        else if (mode == EditorMode.Edit && PendingObject is null)
+        {
+            _confirmationReturnMode = EditorMode.Edit;
+        }
+
         if (mode != EditorMode.Edit)
         {
             FreeRotationEnabled = false;
             ScaleModeEnabled = false;
         }
+
+        if (mode == EditorMode.Delete)
+        {
+            IsColorTriggerSettingsOpen = false;
+        }
+
         NotifyChanged();
     }
 
@@ -143,6 +175,8 @@ public sealed class EditorSession
         SelectedRotation = 0;
         FreeRotationEnabled = false;
         ScaleModeEnabled = false;
+        IsColorTriggerSettingsOpen = false;
+        _confirmationReturnMode = EditorMode.Build;
 
         if (PendingObject is not null)
         {
@@ -231,6 +265,17 @@ public sealed class EditorSession
         NotifyChanged();
     }
 
+    public void ToggleColorTriggerSettings()
+    {
+        if (!CanEditColorTrigger)
+        {
+            return;
+        }
+
+        IsColorTriggerSettingsOpen = !IsColorTriggerSettingsOpen;
+        NotifyChanged();
+    }
+
     public void SetPendingRotation(string? value)
     {
         if (!CanFreeRotate || PendingObject is null ||
@@ -250,14 +295,13 @@ public sealed class EditorSession
 
     public void ConfirmPlacement()
     {
-        if (PendingObject is null)
+        var confirmedObject = CreateConfirmedPlacementSnapshot();
+        if (confirmedObject is null)
         {
             return;
         }
 
-        PendingObject.Rotation = ConstrainRotation(PendingObject.Type, PendingObject.Rotation);
-        SelectedRotation = PendingObject.Rotation;
-        var confirmedObject = CreateConfirmedObject(PendingObject);
+        SelectedRotation = confirmedObject.Rotation;
         if (EditingObjectKey is not null)
         {
             _objects.Remove(EditingObjectKey);
@@ -269,7 +313,61 @@ public sealed class EditorSession
         SelectedCell = null;
         FreeRotationEnabled = false;
         ScaleModeEnabled = false;
-        Mode = EditorMode.Build;
+        IsColorTriggerSettingsOpen = false;
+        Mode = _confirmationReturnMode;
+        NotifyChanged();
+    }
+
+    public EditorObjectInstance? CreateConfirmedPlacementSnapshot()
+    {
+        if (PendingObject is null)
+        {
+            return null;
+        }
+
+        var snapshot = PendingObject.Clone();
+        snapshot.Rotation = ConstrainRotation(snapshot.Type, snapshot.Rotation);
+        return CreateConfirmedObject(snapshot);
+    }
+
+    public bool TryGetEditingCell(out EditorCell cell)
+    {
+        cell = default;
+        if (EditingObjectKey is null)
+        {
+            return false;
+        }
+
+        var parts = EditingObjectKey.Split(':', 2);
+        if (parts.Length != 2 || !int.TryParse(parts[0], out var x) || !int.TryParse(parts[1], out var y))
+        {
+            return false;
+        }
+
+        cell = new EditorCell(x, y);
+        return true;
+    }
+
+    public void LoadConfirmedObjects(IEnumerable<EditorObjectInstance> objects)
+    {
+        _objects.Clear();
+        foreach (var instance in objects)
+        {
+            if (instance.X < 0 || instance.X >= ColumnCount ||
+                instance.Y < 0 || instance.Y >= RowCount ||
+                !_definitionByType.ContainsKey(CatalogTypeFor(instance.Type)))
+            {
+                continue;
+            }
+
+            var confirmed = instance.Clone();
+            confirmed.Rotation = ConstrainRotation(confirmed.Type, confirmed.Rotation);
+            _objects[CellKey(confirmed.X, confirmed.Y)] = confirmed;
+        }
+
+        ClearPendingSelection(false);
+        BuildObjectArmed = false;
+        SelectedObjectType = null;
         NotifyChanged();
     }
 
@@ -281,7 +379,7 @@ public sealed class EditorSession
         }
 
         ClearPendingSelection(false);
-        Mode = EditorMode.Edit;
+        Mode = EditorMode.Delete;
         NotifyChanged();
     }
 
@@ -311,6 +409,34 @@ public sealed class EditorSession
             PendingObject.Blue = color & 0xFF;
         }
 
+        NotifyChanged();
+    }
+
+    public void SetColorChannel(char channel, string? value)
+    {
+        if (PendingObject is null || !IsColorTriggerSelected ||
+            !int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedValue))
+        {
+            return;
+        }
+
+        var channelValue = Math.Clamp(parsedValue, 0, 255);
+        switch (char.ToLowerInvariant(channel))
+        {
+            case 'r':
+                PendingObject.Red = channelValue;
+                break;
+            case 'g':
+                PendingObject.Green = channelValue;
+                break;
+            case 'b':
+                PendingObject.Blue = channelValue;
+                break;
+            default:
+                return;
+        }
+
+        IsColorHexInvalid = false;
         NotifyChanged();
     }
 
@@ -450,27 +576,20 @@ public sealed class EditorSession
         var key = CellKey(cell.X, cell.Y);
         var containsPlacedObject = _objects.ContainsKey(key);
 
-        if (Mode == EditorMode.Build && BuildObjectArmed)
+        if (Mode == EditorMode.Build)
         {
-            PreparePlacement(cell, containsPlacedObject ? key : null);
+            if (BuildObjectArmed)
+            {
+                PreparePlacement(cell, containsPlacedObject ? key : null);
+            }
         }
-        else if (containsPlacedObject)
+        else if (Mode == EditorMode.Edit && containsPlacedObject)
         {
-            Mode = EditorMode.Edit;
             SelectPlacedObject(cell, key);
         }
-        else if (Mode == EditorMode.Edit)
+        else if (Mode == EditorMode.Delete && containsPlacedObject)
         {
-            PendingObject = null;
-            EditingObjectKey = null;
-            SelectedCell = cell;
-            FreeRotationEnabled = false;
-            ScaleModeEnabled = false;
-            _isFreeRotating = false;
-        }
-        else
-        {
-            SelectedCell = null;
+            SelectPlacedObject(cell, key);
         }
     }
 
@@ -486,6 +605,8 @@ public sealed class EditorSession
         SelectedCell = cell;
         FreeRotationEnabled = false;
         ScaleModeEnabled = false;
+        IsColorTriggerSettingsOpen = false;
+        _confirmationReturnMode = EditorMode.Build;
     }
 
     private void SelectPlacedObject(EditorCell cell, string key)
@@ -500,6 +621,8 @@ public sealed class EditorSession
         SelectedCell = cell;
         FreeRotationEnabled = false;
         ScaleModeEnabled = false;
+        IsColorTriggerSettingsOpen = false;
+        _confirmationReturnMode = Mode;
     }
 
     private void ClearPendingSelection(bool notify = true)
@@ -509,6 +632,7 @@ public sealed class EditorSession
         SelectedCell = null;
         FreeRotationEnabled = false;
         ScaleModeEnabled = false;
+        IsColorTriggerSettingsOpen = false;
         _isFreeRotating = false;
         if (notify)
         {

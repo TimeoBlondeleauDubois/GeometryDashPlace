@@ -2,104 +2,151 @@
 @inject IJSRuntime JavaScript
 @using System.Globalization
 
-<section class="color-trigger-settings"
-         aria-label="Color trigger settings"
-         hidden="@(!Editor.IsColorTriggerSelected)">
-    <strong><GeometryDashText Text="COLOR TRIGGER" Height="16" /></strong>
+<div class="color-trigger-backdrop"
+     hidden="@(!Editor.IsColorTriggerSettingsOpen)"
+     @onclick="CloseSettings">
+    <section class="color-trigger-settings"
+             role="dialog"
+             aria-modal="true"
+             aria-label="Select color"
+             @onclick:stopPropagation="true">
+        <header class="dialog-heading">
+            <img class="dialog-info"
+                 src="/assets/ui/color-picker/panel/info.png"
+                 alt=""
+                 aria-hidden="true"
+                 draggable="false" />
+            <GeometryDashText Text="SELECT COLOR" Height="58" Gold="true" />
+        </header>
 
-    <div class="color-target-field">
-        <span><GeometryDashText Text="TARGET" Height="11" /></span>
-        <div class="color-target-options">
-            <button class="@(Editor.ColorTarget == "background" ? "is-active" : null)"
-                    type="button"
-                    aria-pressed="@(Editor.ColorTarget == "background")"
-                    @onclick="SelectBackground"><GeometryDashText Text="BG" Height="10" /></button>
-            <button class="@(Editor.ColorTarget == "ground" ? "is-active" : null)"
-                    type="button"
-                    aria-pressed="@(Editor.ColorTarget == "ground")"
-                    @onclick="SelectGround"><GeometryDashText Text="GROUND" Height="10" /></button>
-        </div>
-    </div>
+        <div class="color-dialog-content">
+            <section class="color-number-panel" aria-label="Color values">
+                <span class="selected-color-preview"
+                      style="--selected-color: @Editor.ColorHex;"
+                      aria-hidden="true"></span>
 
-    <div class="color-value-field">
-        <span><GeometryDashText Text="COLOR" Height="11" /></span>
-
-        <div class="gd-color-picker"
-             @ref="_colorWheel"
-             style="--picker-color: #ff0000; --selected-color: @Editor.ColorHex;">
-            <div class="hue-wheel-surface"
-                 data-color-wheel-hue
-                 role="slider"
-                 tabindex="0"
-                 aria-label="Hue"
-                 aria-valuemin="0"
-                 aria-valuemax="359"
-                 aria-valuenow="0">
-                <img class="hue-wheel-image"
-                     src="/assets/ui/color-picker/wheel/hue-wheel.png"
-                     alt=""
-                     draggable="false" />
-                <img class="picker-handle hue-picker-handle"
-                     data-color-wheel-hue-handle
-                     src="/assets/ui/color-picker/wheel/selection-handle.png"
-                     alt=""
-                     draggable="false" />
-
-                <div class="color-plane"
-                     data-color-wheel-plane
-                     role="application"
-                     tabindex="0"
-                     aria-label="Saturation and brightness">
-                    <span class="color-plane-base" aria-hidden="true"></span>
-                    <img class="color-plane-layer"
-                         src="/assets/ui/color-picker/wheel/color-shading.png"
-                         alt=""
-                         draggable="false" />
-                    <img class="color-plane-layer"
-                         src="/assets/ui/color-picker/wheel/color-overlay.png"
-                         alt=""
-                         draggable="false" />
-                    <img class="picker-handle color-picker-handle"
-                         data-color-wheel-plane-handle
-                         src="/assets/ui/color-picker/wheel/selection-handle.png"
-                         alt=""
-                         draggable="false" />
+                <div class="rgb-fields">
+                    <label>
+                        <GeometryDashText Text="R:" Height="19" />
+                        <input type="number" min="0" max="255" value="@Editor.ColorRed"
+                               inputmode="numeric" @oninput="HandleRedInput" aria-label="Red" />
+                    </label>
+                    <label>
+                        <GeometryDashText Text="G:" Height="19" />
+                        <input type="number" min="0" max="255" value="@Editor.ColorGreen"
+                               inputmode="numeric" @oninput="HandleGreenInput" aria-label="Green" />
+                    </label>
+                    <label>
+                        <GeometryDashText Text="B:" Height="19" />
+                        <input type="number" min="0" max="255" value="@Editor.ColorBlue"
+                               inputmode="numeric" @oninput="HandleBlueInput" aria-label="Blue" />
+                    </label>
                 </div>
+
+                <label class="hex-field">
+                    <GeometryDashText Text="HEX:" Height="22" />
+                    <input class="color-hex-input @(Editor.IsColorHexInvalid ? "is-invalid" : null)"
+                           type="text"
+                           value="@Editor.ColorHex.TrimStart('#')"
+                           maxlength="6"
+                           autocomplete="off"
+                           spellcheck="false"
+                           @oninput="HandleHexInput"
+                           aria-label="Hex color code" />
+                </label>
+            </section>
+
+            <div class="color-value-field">
+                <div class="gd-color-picker"
+                     @ref="_colorWheel"
+                     style="--picker-color: #ff0000; --selected-color: @Editor.ColorHex;">
+                    <div class="hue-wheel-surface"
+                         data-color-wheel-hue
+                         role="slider"
+                         tabindex="0"
+                         aria-label="Hue"
+                         aria-valuemin="0"
+                         aria-valuemax="359"
+                         aria-valuenow="0">
+                        <img class="hue-wheel-image"
+                             src="/assets/ui/color-picker/wheel/hue-wheel.png"
+                             alt=""
+                             draggable="false" />
+                        <img class="picker-handle hue-picker-handle"
+                             data-color-wheel-hue-handle
+                             src="/assets/ui/color-picker/wheel/selection-handle.png"
+                             alt=""
+                             draggable="false" />
+
+                        <div class="color-plane"
+                             data-color-wheel-plane
+                             role="application"
+                             tabindex="0"
+                             aria-label="Saturation and brightness">
+                            <span class="color-plane-base" aria-hidden="true"></span>
+                            <img class="color-plane-layer"
+                                 src="/assets/ui/color-picker/wheel/color-shading.png"
+                                 alt=""
+                                 draggable="false" />
+                            <img class="color-plane-layer"
+                                 src="/assets/ui/color-picker/wheel/color-overlay.png"
+                                 alt=""
+                                 draggable="false" />
+                            <img class="picker-handle color-picker-handle"
+                                 data-color-wheel-plane-handle
+                                 src="/assets/ui/color-picker/wheel/selection-handle.png"
+                                 alt=""
+                                 draggable="false" />
+                        </div>
+                    </div>
+                </div>
+
+                <input @ref="_colorInput"
+                       type="hidden"
+                       value="@Editor.ColorHex"
+                       @oninput="HandleWheelInput" />
             </div>
+
+            <aside class="trigger-options-panel">
+                <div class="color-target-field">
+                    <GeometryDashText Text="TARGET" Height="24" />
+                    <div class="color-target-options">
+                        <button class="@(Editor.ColorTarget == "background" ? "is-active" : null)"
+                                type="button"
+                                aria-pressed="@(Editor.ColorTarget == "background")"
+                                @onclick="SelectBackground">
+                            <GeometryDashText Text="BACKGROUND" Height="15" />
+                        </button>
+                        <button class="@(Editor.ColorTarget == "ground" ? "is-active" : null)"
+                                type="button"
+                                aria-pressed="@(Editor.ColorTarget == "ground")"
+                                @onclick="SelectGround">
+                            <GeometryDashText Text="GROUND" Height="17" />
+                        </button>
+                    </div>
+                </div>
+
+                <label class="duration-field">
+                    <GeometryDashText Text="FADE TIME:" Height="24" />
+                    <input type="number"
+                           value="@Editor.ColorDuration.ToString(CultureInfo.InvariantCulture)"
+                           min="0"
+                           step="0.1"
+                           inputmode="decimal"
+                           @oninput="HandleDurationInput"
+                           aria-label="Color transition duration in seconds" />
+                    <GeometryDashText Text="SECONDS" Height="13" />
+                </label>
+            </aside>
         </div>
 
-        <div class="color-picker-readout">
-            <span class="selected-color-swatch"
-                  style="--selected-color: @Editor.ColorHex;"
-                  aria-hidden="true"></span>
-            <input class="color-hex-input @(Editor.IsColorHexInvalid ? "is-invalid" : null)"
-                   type="text"
-                   value="@Editor.ColorHex"
-                   maxlength="7"
-                   autocomplete="off"
-                   spellcheck="false"
-                   @oninput="HandleHexInput"
-                   aria-label="Hex color code" />
-        </div>
-
-        <input @ref="_colorInput"
-               type="hidden"
-               value="@Editor.ColorHex"
-               @oninput="HandleWheelInput" />
-    </div>
-
-    <label class="duration-field">
-        <span><GeometryDashText Text="DURATION" Height="11" /></span>
-        <input type="number"
-               value="@Editor.ColorDuration.ToString(CultureInfo.InvariantCulture)"
-               min="0"
-               step="0.1"
-               inputmode="decimal"
-               @oninput="HandleDurationInput"
-               aria-label="Color transition duration in seconds" />
-        <small><GeometryDashText Text="SECOND(S)" Height="9" /></small>
-    </label>
-</section>
+        <footer class="dialog-footer">
+            <button class="dialog-confirm" type="button" @onclick="CloseSettings">
+                <GeometryDashText Text="OK" Height="46" Gold="true" />
+            </button>
+        </footer>
+    </section>
+</div>
 
 @code {
     private ElementReference _colorWheel;
@@ -143,7 +190,11 @@
 
     private void HandleWheelInput(ChangeEventArgs eventArgs) => Editor.SetColorHex(eventArgs.Value?.ToString());
     private void HandleHexInput(ChangeEventArgs eventArgs) => Editor.SetColorHex(eventArgs.Value?.ToString());
+    private void HandleRedInput(ChangeEventArgs eventArgs) => Editor.SetColorChannel('r', eventArgs.Value?.ToString());
+    private void HandleGreenInput(ChangeEventArgs eventArgs) => Editor.SetColorChannel('g', eventArgs.Value?.ToString());
+    private void HandleBlueInput(ChangeEventArgs eventArgs) => Editor.SetColorChannel('b', eventArgs.Value?.ToString());
     private void HandleDurationInput(ChangeEventArgs eventArgs) => Editor.SetColorDuration(eventArgs.Value?.ToString());
     private void SelectBackground() => Editor.SetColorTarget("background");
     private void SelectGround() => Editor.SetColorTarget("ground");
+    private void CloseSettings() => Editor.ToggleColorTriggerSettings();
 }

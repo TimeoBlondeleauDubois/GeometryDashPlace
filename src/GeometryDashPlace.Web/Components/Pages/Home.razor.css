@@ -21,8 +21,147 @@
     border: 0;
 }
 
+.editor-state-page {
+    display: grid;
+    place-content: center;
+    gap: 14px;
+    text-align: center;
+}
+
+.editor-state-page p {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.editor-account-panel {
+    position: fixed;
+    z-index: 20;
+    top: 12px;
+    left: 12px;
+    box-sizing: border-box;
+    display: flex;
+    max-width: min(460px, 42vw);
+    align-items: center;
+    gap: 7px;
+    padding: 5px;
+    border: 2px solid #fff;
+    border-radius: 11px;
+    background: linear-gradient(180deg, rgb(28 59 96 / 96%), rgb(8 24 48 / 96%));
+    box-shadow: inset 0 0 0 2px #07101d, 0 4px 0 rgb(0 0 0 / 55%);
+}
+
+.account-event-name {
+    display: grid;
+    flex: 0 0 auto;
+    min-height: 28px;
+    padding: 0 9px;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #31dce5, #1398b0);
+    box-shadow: inset 0 0 0 2px rgb(255 255 255 / 24%), 0 2px 0 rgb(0 0 0 / 30%);
+    place-items: center;
+}
+
+.account-user-name {
+    min-width: 0;
+    overflow: hidden;
+    color: #d8ebff;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    text-shadow: 1px 1px 0 #000;
+    white-space: nowrap;
+}
+
+.account-action {
+    display: grid;
+    flex: 0 0 auto;
+    min-height: 28px;
+    padding: 0 9px;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #91eb31, #4cbd12);
+    box-shadow: inset 0 0 0 2px rgb(255 255 255 / 25%), 0 2px 0 #1f690d;
+    place-items: center;
+    transition: transform 70ms ease, filter 70ms ease;
+}
+
+.account-action:hover {
+    filter: brightness(1.12);
+    transform: scale(1.04);
+}
+
+.account-action:active {
+    transform: scale(0.95);
+}
+
+.account-action:focus-visible {
+    outline: 3px solid #fff36a;
+    outline-offset: 2px;
+}
+
+.account-action,
+.google-login {
+    color: white;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.google-login {
+    padding: 9px 15px;
+    border: 2px solid white;
+    border-radius: 8px;
+    background: #52c928;
+    box-shadow: 0 3px 0 #1e6410;
+}
+
+.editor-auth-guard {
+    position: fixed;
+    z-index: 19;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    height: var(--toolbar-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    background: rgb(7 7 10 / 88%);
+}
+
+.editor-persistence-message {
+    position: fixed;
+    z-index: 31;
+    top: 72px;
+    left: 50%;
+    max-width: min(90vw, 620px);
+    padding: 10px 16px;
+    border: 2px solid white;
+    border-radius: 9px;
+    background: rgb(126 27 27 / 94%);
+    box-shadow: 0 3px 0 rgb(0 0 0 / 45%);
+    font-weight: 700;
+    text-align: center;
+    transform: translateX(-50%);
+}
+
 @media (max-width: 760px) {
     .editor-page {
         --toolbar-height: 188px;
+    }
+
+    .editor-account-panel {
+        top: 52px;
+        left: 7px;
+        max-width: calc(100vw - 14px);
+    }
+
+    .account-event-name {
+        display: none;
+    }
+}
+
+@media (min-width: 761px) and (max-width: 1200px) {
+    .editor-account-panel {
+        top: 58px;
+        max-width: min(460px, calc(100vw - 24px));
     }
 }
