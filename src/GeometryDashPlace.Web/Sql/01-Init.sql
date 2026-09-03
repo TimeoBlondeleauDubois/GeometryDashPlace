@@ -53,8 +53,10 @@ CREATE TABLE IF NOT EXISTS object_types
     key varchar(64) PRIMARY KEY,
     display_name varchar(100) NOT NULL,
     category varchar(32) NOT NULL,
-    geometry_dash_object_id integer NOT NULL,
+    geometry_dash_object_id integer,
     y_offset numeric(8, 3) NOT NULL DEFAULT 0,
+    rotation_mode varchar(16) NOT NULL DEFAULT 'free',
+    can_scale boolean NOT NULL DEFAULT true,
     has_color_settings boolean NOT NULL DEFAULT false,
     has_duration_setting boolean NOT NULL DEFAULT false,
     asset_path text,
@@ -63,7 +65,10 @@ CREATE TABLE IF NOT EXISTS object_types
     CONSTRAINT ck_object_types_name_not_blank CHECK (btrim(display_name) <> ''),
     CONSTRAINT ck_object_types_category CHECK
         (category IN ('block', 'hazard', 'portal', 'pad', 'orb', 'trigger', 'speed', 'decoration')),
-    CONSTRAINT ck_object_types_gd_id CHECK (geometry_dash_object_id > 0)
+    CONSTRAINT ck_object_types_rotation_mode CHECK
+        (rotation_mode IN ('none', 'quarter_turns', 'free')),
+    CONSTRAINT ck_object_types_gd_id CHECK
+        (geometry_dash_object_id IS NULL OR geometry_dash_object_id > 0)
 );
 
 CREATE INDEX IF NOT EXISTS ix_object_types_category
@@ -95,7 +100,9 @@ CREATE TABLE IF NOT EXISTS level_cells
     x integer NOT NULL,
     y integer NOT NULL,
     object_type_key varchar(64) NOT NULL,
-    rotation smallint NOT NULL DEFAULT 0,
+    rotation numeric(7, 3) NOT NULL DEFAULT 0,
+    scale_x numeric(6, 3) NOT NULL DEFAULT 1,
+    scale_y numeric(6, 3) NOT NULL DEFAULT 1,
     color_red smallint,
     color_green smallint,
     color_blue smallint,
@@ -111,7 +118,9 @@ CREATE TABLE IF NOT EXISTS level_cells
     CONSTRAINT fk_level_cells_author FOREIGN KEY (author_user_id)
         REFERENCES users (id),
     CONSTRAINT ck_level_cells_coordinates CHECK (x >= 0 AND y >= 0),
-    CONSTRAINT ck_level_cells_rotation CHECK (rotation IN (0, 90, 180, 270)),
+    CONSTRAINT ck_level_cells_rotation CHECK (rotation >= 0 AND rotation < 360),
+    CONSTRAINT ck_level_cells_scale_x CHECK (scale_x BETWEEN 0.5 AND 2),
+    CONSTRAINT ck_level_cells_scale_y CHECK (scale_y BETWEEN 0.5 AND 2),
     CONSTRAINT ck_level_cells_red CHECK (color_red IS NULL OR color_red BETWEEN 0 AND 255),
     CONSTRAINT ck_level_cells_green CHECK (color_green IS NULL OR color_green BETWEEN 0 AND 255),
     CONSTRAINT ck_level_cells_blue CHECK (color_blue IS NULL OR color_blue BETWEEN 0 AND 255),
@@ -215,6 +224,8 @@ DECLARE
     event_height integer;
     object_has_color boolean;
     object_has_duration boolean;
+    object_rotation_mode varchar(16);
+    object_can_scale boolean;
 BEGIN
     SELECT width, height
     INTO event_width, event_height
@@ -230,8 +241,8 @@ BEGIN
             NEW.x, NEW.y, event_width, event_height;
     END IF;
 
-    SELECT has_color_settings, has_duration_setting
-    INTO object_has_color, object_has_duration
+    SELECT has_color_settings, has_duration_setting, rotation_mode, can_scale
+    INTO object_has_color, object_has_duration, object_rotation_mode, object_can_scale
     FROM object_types
     WHERE key = NEW.object_type_key;
 
@@ -257,6 +268,18 @@ BEGIN
         RAISE EXCEPTION 'Object type % does not accept a duration', NEW.object_type_key;
     END IF;
 
+    IF object_rotation_mode = 'none' AND NEW.rotation <> 0 THEN
+        RAISE EXCEPTION 'Object type % does not accept rotation', NEW.object_type_key;
+    END IF;
+
+    IF object_rotation_mode = 'quarter_turns' AND mod(NEW.rotation, 90) <> 0 THEN
+        RAISE EXCEPTION 'Object type % only accepts quarter-turn rotation', NEW.object_type_key;
+    END IF;
+
+    IF NOT object_can_scale AND (NEW.scale_x <> 1 OR NEW.scale_y <> 1) THEN
+        RAISE EXCEPTION 'Object type % does not accept scaling', NEW.object_type_key;
+    END IF;
+
     RETURN NEW;
 END;
 $$;
@@ -276,6 +299,8 @@ SELECT
     object_type.geometry_dash_object_id,
     object_type.y_offset,
     cell.rotation,
+    cell.scale_x,
+    cell.scale_y,
     cell.color_red AS red,
     cell.color_green AS green,
     cell.color_blue AS blue,
