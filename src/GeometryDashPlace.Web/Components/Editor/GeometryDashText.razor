@@ -1,9 +1,9 @@
 @using System.Globalization
 
-<span class="geometry-dash-text" aria-hidden="true">
+<span class="geometry-dash-text @(Gold ? "is-gold" : null)" aria-hidden="true">
     @foreach (var character in Text.ToUpperInvariant())
     {
-        if (Glyphs.TryGetValue(character, out var glyph))
+        if (ActiveGlyphs.TryGetValue(character, out var glyph))
         {
             <span class="glyph-slot" style="@GetSlotStyle(glyph)">
                 <span class="glyph-image" style="@GetImageStyle(glyph)"></span>
@@ -13,8 +13,10 @@
 </span>
 
 @code {
-    private const double FontLineHeight = 67;
-    private const double TextureSize = 512;
+    private const double DefaultFontLineHeight = 67;
+    private const double DefaultTextureSize = 512;
+    private const double GoldFontLineHeight = 104;
+    private const double GoldTextureSize = 1024;
 
     private static readonly IReadOnlyDictionary<char, Glyph> Glyphs = new Dictionary<char, Glyph>
     {
@@ -66,19 +68,78 @@
         ['Z'] = new(363, 237, 49, 53, -1, 10, 40)
     };
 
+    private static readonly IReadOnlyDictionary<char, Glyph> GoldGlyphs = new Dictionary<char, Glyph>
+    {
+        [' '] = new(895, 519, 0, 0, 0, 103, 45),
+        ['#'] = new(185, 519, 87, 53, -1, 19, 70),
+        ['%'] = new(600, 1, 97, 88, -1, 17, 81),
+        ['('] = new(99, 1, 47, 103, -1, 9, 30),
+        [')'] = new(147, 1, 47, 103, -1, 9, 30),
+        [','] = new(376, 519, 40, 47, -1, 64, 23),
+        ['-'] = new(799, 519, 55, 36, -1, 48, 38),
+        ['.'] = new(694, 519, 38, 38, -1, 67, 22),
+        ['/'] = new(776, 1, 56, 87, -1, 18, 40),
+        ['0'] = new(423, 106, 80, 85, -1, 19, 63),
+        ['1'] = new(887, 277, 66, 83, -1, 21, 50),
+        ['2'] = new(260, 192, 79, 84, -1, 20, 62),
+        ['3'] = new(504, 106, 78, 85, -1, 19, 62),
+        ['4'] = new(624, 192, 87, 83, -1, 21, 70),
+        ['5'] = new(583, 106, 77, 85, -1, 19, 60),
+        ['6'] = new(261, 106, 80, 85, -1, 19, 64),
+        ['7'] = new(499, 277, 78, 83, -1, 21, 62),
+        ['8'] = new(661, 106, 75, 85, -1, 19, 58),
+        ['9'] = new(342, 106, 80, 85, -1, 20, 63),
+        [':'] = new(389, 361, 40, 77, -1, 28, 23),
+        ['A'] = new(887, 106, 88, 84, -1, 20, 71),
+        ['B'] = new(170, 277, 82, 83, -1, 21, 65),
+        ['C'] = new(89, 106, 85, 85, -1, 20, 69),
+        ['D'] = new(336, 277, 81, 83, -1, 21, 64),
+        ['E'] = new(578, 277, 77, 83, -1, 21, 61),
+        ['F'] = new(656, 277, 77, 83, -1, 21, 60),
+        ['G'] = new(175, 106, 85, 85, -1, 19, 68),
+        ['H'] = new(536, 192, 87, 83, -1, 21, 70),
+        ['I'] = new(954, 277, 52, 83, -1, 21, 35),
+        ['J'] = new(340, 192, 62, 84, -1, 21, 45),
+        ['K'] = new(86, 277, 83, 83, -1, 21, 67),
+        ['L'] = new(812, 277, 74, 83, -1, 21, 58),
+        ['M'] = new(444, 192, 91, 83, -1, 21, 75),
+        ['N'] = new(418, 277, 80, 83, -1, 21, 63),
+        ['O'] = new(1, 106, 87, 85, -1, 20, 70),
+        ['P'] = new(885, 192, 84, 83, -1, 21, 67),
+        ['Q'] = new(512, 1, 87, 89, -1, 20, 70),
+        ['R'] = new(1, 277, 84, 83, -1, 21, 67),
+        ['S'] = new(833, 1, 81, 86, -1, 19, 64),
+        ['T'] = new(253, 277, 82, 83, -1, 21, 65),
+        ['U'] = new(176, 192, 83, 84, -1, 21, 67),
+        ['V'] = new(712, 192, 86, 83, -1, 21, 69),
+        ['W'] = new(794, 106, 92, 84, -1, 20, 75),
+        ['X'] = new(89, 192, 86, 84, -1, 20, 69),
+        ['Y'] = new(799, 192, 85, 83, -1, 21, 68),
+        ['Z'] = new(734, 277, 77, 83, -1, 21, 61)
+    };
+
     [Parameter, EditorRequired]
     public string Text { get; set; } = string.Empty;
 
     [Parameter]
     public double Height { get; set; } = 40;
 
-    private double Scale => Height / FontLineHeight;
+    [Parameter]
+    public bool Gold { get; set; }
+
+    private IReadOnlyDictionary<char, Glyph> ActiveGlyphs => Gold ? GoldGlyphs : Glyphs;
+    private double ActiveLineHeight => Gold ? GoldFontLineHeight : DefaultFontLineHeight;
+    private double ActiveTextureSize => Gold ? GoldTextureSize : DefaultTextureSize;
+    private string ActiveTexturePath => Gold
+        ? "/assets/ui/fonts/geometry-dash-gold.png"
+        : "/assets/ui/fonts/geometry-dash-big.png";
+    private double Scale => Height / ActiveLineHeight;
 
     private string GetSlotStyle(Glyph glyph) => FormattableString.Invariant(
         $"width:{glyph.Advance * Scale:0.###}px;height:{Height:0.###}px");
 
     private string GetImageStyle(Glyph glyph) => FormattableString.Invariant(
-        $"left:{glyph.OffsetX * Scale:0.###}px;top:{glyph.OffsetY * Scale:0.###}px;width:{glyph.Width * Scale:0.###}px;height:{glyph.Height * Scale:0.###}px;background-size:{TextureSize * Scale:0.###}px {TextureSize * Scale:0.###}px;background-position:{-glyph.X * Scale:0.###}px {-glyph.Y * Scale:0.###}px");
+        $"left:{glyph.OffsetX * Scale:0.###}px;top:{glyph.OffsetY * Scale:0.###}px;width:{glyph.Width * Scale:0.###}px;height:{glyph.Height * Scale:0.###}px;background-image:url('{ActiveTexturePath}');background-size:{ActiveTextureSize * Scale:0.###}px {ActiveTextureSize * Scale:0.###}px;background-position:{-glyph.X * Scale:0.###}px {-glyph.Y * Scale:0.###}px");
 
     private sealed record Glyph(
         int X,

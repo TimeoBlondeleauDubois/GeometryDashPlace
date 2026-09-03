@@ -1,0 +1,18 @@
+<div class="edit-object-area" hidden="@(!Editor.CanEditColorTrigger)">
+    <button class="edit-object-button @(Editor.IsColorTriggerSettingsOpen ? "is-active" : null)"
+            type="button"
+            aria-label="Edit color trigger"
+            title="Edit Object"
+            aria-pressed="@Editor.IsColorTriggerSettingsOpen"
+            @onclick="Editor.ToggleColorTriggerSettings">
+        <img src="/assets/ui/editor/actions/edit-object.png"
+             alt=""
+             aria-hidden="true"
+             draggable="false" />
+    </button>
+</div>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}

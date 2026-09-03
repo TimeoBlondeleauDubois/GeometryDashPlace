@@ -30,12 +30,12 @@
     transition: transform 70ms ease, filter 70ms ease;
 }
 
-.delete-selection-button:hover:not(:disabled) {
+.delete-selection-button:hover {
     transform: scale(1.05);
     filter: brightness(1.1);
 }
 
-.delete-selection-button:active:not(:disabled) {
+.delete-selection-button:active {
     transform: scale(0.93);
 }
 
@@ -44,10 +44,8 @@
     outline-offset: 2px;
 }
 
-.delete-selection-button:disabled {
-    cursor: default;
-    filter: grayscale(0.68) brightness(0.7);
-    opacity: 0.72;
+.delete-selection-button.is-active {
+    background-image: url('/assets/ui/buttons/square-blue.png');
 }
 
 .delete-selection-decoration {

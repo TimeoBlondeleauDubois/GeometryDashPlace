@@ -1,10 +1,10 @@
 <div class="confirm-placement-area">
     <button class="confirm-placement-button"
             type="button"
-            aria-label="Confirm placement"
-            title="Confirm placement"
-            disabled="@(!Editor.HasPendingObject)"
-            @onclick="Editor.ConfirmPlacement">
+            aria-label="@(Editor.Mode == EditorMode.Delete ? "Confirm deletion" : "Confirm placement")"
+            title="@(Editor.Mode == EditorMode.Delete ? "Confirm deletion" : "Confirm placement")"
+            disabled="@(!Editor.CanValidate)"
+            @onclick="ConfirmAsync">
         <img src="/assets/ui/editor/confirmation/confirm-checkmark.png"
              alt=""
              aria-hidden="true" />
@@ -15,4 +15,11 @@
 @code {
     [CascadingParameter]
     public required EditorSession Editor { get; set; }
+
+    [CascadingParameter]
+    public required EditorPersistenceActions Actions { get; set; }
+
+    private Task ConfirmAsync() => Editor.Mode == EditorMode.Delete
+        ? Actions.DeleteSelectedObjectAsync()
+        : Actions.ConfirmPlacementAsync();
 }
