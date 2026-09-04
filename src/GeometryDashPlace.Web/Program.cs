@@ -1,9 +1,11 @@
 using DotNetEnv;
 using GeometryDashPlace.Web.Auth;
 using GeometryDashPlace.Web.Components;
+using GeometryDashPlace.Web.Data;
 using GeometryDashPlace.Web.Events;
 using GeometryDashPlace.Web.Persistence;
-using Npgsql;
+using GeometryDashPlace.Web.Realtime;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,10 +28,13 @@ var connectionString = builder.Environment.IsDevelopment()
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+builder.Services.AddSignalR();
 
-builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
-builder.Services.AddScoped<ILevelRepository, PostgresLevelRepository>();
-builder.Services.AddScoped<ILevelEventRepository, PostgresLevelEventRepository>();
+builder.Services.AddDbContextFactory<GeometryDashPlaceDbContext>(
+    options => options.UseNpgsql(connectionString));
+builder.Services.AddScoped<ILevelRepository, EntityFrameworkLevelRepository>();
+builder.Services.AddScoped<ILevelEventRepository, EntityFrameworkLevelEventRepository>();
+builder.Services.AddSingleton<LevelRealtimeService>();
 builder.Services.AddGoogleAuthentication(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
@@ -40,7 +45,8 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 app.UseWhen(
-    context => !context.Request.Path.StartsWithSegments("/api"),
+    context => !context.Request.Path.StartsWithSegments("/api") &&
+               !context.Request.Path.StartsWithSegments("/hubs"),
     branch => branch.UseStatusCodePagesWithReExecute(
         "/not-found", createScopeForStatusCodePages: true));
 app.UseHttpsRedirection();
@@ -53,6 +59,7 @@ app.MapStaticAssets();
 app.MapGoogleAuthEndpoints();
 app.MapLevelEventEndpoints();
 app.MapLevelEndpoints();
+app.MapHub<LevelHub>("/hubs/level");
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

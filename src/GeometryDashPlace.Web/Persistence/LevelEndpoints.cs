@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using GeometryDashPlace.Web.Auth;
+using GeometryDashPlace.Web.Realtime;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GeometryDashPlace.Web.Persistence;
@@ -13,6 +14,7 @@ public static class LevelEndpoints
             .WithTags("Level");
 
         level.MapGet("/", LoadAsync);
+        level.MapGet("/cooldown", GetCooldownAsync).RequireAuthorization();
         level.MapPut("/cells/{x:int}/{y:int}", PlaceAsync).RequireAuthorization();
         level.MapDelete("/cells/{x:int}/{y:int}", DeleteAsync).RequireAuthorization();
         level.MapPost("/cells/{sourceX:int}/{sourceY:int}/move", MoveAsync).RequireAuthorization();
@@ -35,11 +37,8 @@ public static class LevelEndpoints
         }
     }
 
-    private static async Task<IResult> PlaceAsync(
+    private static async Task<IResult> GetCooldownAsync(
         Guid eventId,
-        int x,
-        int y,
-        [FromBody] PlaceLevelCellRequest request,
         ClaimsPrincipal principal,
         ILevelRepository repository,
         CancellationToken cancellationToken)
@@ -51,8 +50,40 @@ public static class LevelEndpoints
                 return Results.Unauthorized();
             }
 
+            return Results.Ok(await repository.GetCooldownAsync(
+                eventId, userId, cancellationToken));
+        }
+        catch (LevelPersistenceException exception)
+        {
+            return ToProblem(exception);
+        }
+    }
+
+    private static async Task<IResult> PlaceAsync(
+        Guid eventId,
+        int x,
+        int y,
+        [FromBody] PlaceLevelCellRequest request,
+        ClaimsPrincipal principal,
+        ILevelRepository repository,
+        LevelRealtimeService realtime,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!AuthenticatedUser.TryGetUserId(principal, out var userId))
+            {
+                return Results.Unauthorized();
+            }
+
             var result = await repository.PlaceAsync(
                 eventId, userId, x, y, request, cancellationToken);
+            if (!result.IsReplay)
+            {
+                await realtime.PublishAsync(new LevelChange(
+                    eventId, userId, result.Action, result.Revision,
+                    x, y, null, null, result.NextPlacementAt, result.Cell));
+            }
             return Results.Ok(result);
         }
         catch (LevelPersistenceException exception)
@@ -68,6 +99,7 @@ public static class LevelEndpoints
         [FromBody] DeleteLevelCellRequest request,
         ClaimsPrincipal principal,
         ILevelRepository repository,
+        LevelRealtimeService realtime,
         CancellationToken cancellationToken)
     {
         try
@@ -79,6 +111,12 @@ public static class LevelEndpoints
 
             var result = await repository.DeleteAsync(
                 eventId, userId, x, y, request, cancellationToken);
+            if (!result.IsReplay)
+            {
+                await realtime.PublishAsync(new LevelChange(
+                    eventId, userId, result.Action, result.Revision,
+                    x, y, null, null, result.NextPlacementAt, null));
+            }
             return Results.Ok(result);
         }
         catch (LevelPersistenceException exception)
@@ -94,6 +132,7 @@ public static class LevelEndpoints
         [FromBody] MoveLevelCellRequest request,
         ClaimsPrincipal principal,
         ILevelRepository repository,
+        LevelRealtimeService realtime,
         CancellationToken cancellationToken)
     {
         try
@@ -105,6 +144,13 @@ public static class LevelEndpoints
 
             var result = await repository.MoveAsync(
                 eventId, userId, sourceX, sourceY, request, cancellationToken);
+            if (!result.IsReplay)
+            {
+                await realtime.PublishAsync(new LevelChange(
+                    eventId, userId, result.Action, result.Revision,
+                    request.TargetX, request.TargetY, sourceX, sourceY,
+                    result.NextPlacementAt, result.Cell));
+            }
             return Results.Ok(result);
         }
         catch (LevelPersistenceException exception)

@@ -21,6 +21,10 @@ public sealed record LevelState(
     long Revision,
     IReadOnlyList<LevelCell> Cells);
 
+public sealed record LevelCooldownState(
+    DateTimeOffset ServerTime,
+    DateTimeOffset? NextPlacementAt);
+
 public sealed record PlaceLevelCellRequest(
     Guid RequestId,
     string Type,

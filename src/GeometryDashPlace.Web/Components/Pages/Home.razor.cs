@@ -3,6 +3,7 @@ using GeometryDashPlace.Web.Components.Editor;
 using GeometryDashPlace.Web.Components.Editor.State;
 using GeometryDashPlace.Web.Events;
 using GeometryDashPlace.Web.Persistence;
+using GeometryDashPlace.Web.Realtime;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 
@@ -17,12 +18,16 @@ public partial class Home : ComponentBase, IDisposable
     private ILevelRepository LevelRepository { get; set; } = default!;
 
     [Inject]
+    private LevelRealtimeService Realtime { get; set; } = default!;
+
+    [Inject]
     private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
 
     [Inject]
     private ILogger<Home> Logger { get; set; } = default!;
 
     protected EditorSession Editor { get; } = new(EditorObjectCatalog.All);
+    protected EditorCooldownState Cooldown { get; } = new();
     protected EditorPersistenceActions Actions { get; }
     protected LevelEvent? CurrentEvent { get; private set; }
     protected bool IsAuthenticated { get; private set; }
@@ -31,10 +36,14 @@ public partial class Home : ComponentBase, IDisposable
     protected string? UserDisplayName { get; private set; }
     protected string? StatusMessage { get; private set; }
     private Guid? _userId;
+    private readonly CancellationTokenSource _lifetime = new();
+    private IDisposable? _levelSubscription;
+    private long _levelRevision;
 
     public Home()
     {
-        Actions = new EditorPersistenceActions(ConfirmPlacementAsync, DeleteSelectedObjectAsync);
+        Actions = new EditorPersistenceActions(
+            ConfirmPlacementAsync, DeleteSelectedObjectAsync, CanPersist);
     }
 
     protected override async Task OnInitializedAsync()
@@ -65,7 +74,16 @@ public partial class Home : ComponentBase, IDisposable
                 return;
             }
 
+            _levelSubscription = Realtime.Subscribe(
+                CurrentEvent.Id, HandleLevelChangedAsync);
             await ReloadLevelSafelyAsync();
+            if (IsAuthenticated && _userId is { } authenticatedUserId)
+            {
+                var cooldown = await LevelRepository.GetCooldownAsync(
+                    CurrentEvent.Id, authenticatedUserId);
+                Cooldown.Synchronize(cooldown.ServerTime, cooldown.NextPlacementAt);
+                _ = RunCooldownClockAsync(_lifetime.Token);
+            }
         }
         catch (Exception exception)
         {
@@ -80,6 +98,8 @@ public partial class Home : ComponentBase, IDisposable
 
     public void Dispose()
     {
+        _lifetime.Cancel();
+        _levelSubscription?.Dispose();
         Editor.Changed -= HandleEditorChanged;
     }
 
@@ -100,10 +120,13 @@ public partial class Home : ComponentBase, IDisposable
         {
             var requestId = Guid.NewGuid();
             var colorTrigger = placement.Type is "bg_color_trigger" or "g1_color_trigger";
+            LevelMutation result;
+            EditorCell? sourceCell = null;
             if (Editor.TryGetEditingCell(out var source) &&
                 (source.X != placement.X || source.Y != placement.Y))
             {
-                await LevelRepository.MoveAsync(
+                sourceCell = source;
+                result = await LevelRepository.MoveAsync(
                     CurrentEvent!.Id,
                     _userId!.Value,
                     source.X,
@@ -118,7 +141,7 @@ public partial class Home : ComponentBase, IDisposable
             }
             else
             {
-                await LevelRepository.PlaceAsync(
+                result = await LevelRepository.PlaceAsync(
                     CurrentEvent!.Id,
                     _userId!.Value,
                     placement.X,
@@ -133,6 +156,8 @@ public partial class Home : ComponentBase, IDisposable
             }
 
             Editor.ConfirmPlacement();
+            await AcceptMutationAsync(
+                result, new EditorCell(placement.X, placement.Y), sourceCell);
         });
     }
 
@@ -145,14 +170,89 @@ public partial class Home : ComponentBase, IDisposable
 
         await ExecuteMutationAsync(async () =>
         {
-            await LevelRepository.DeleteAsync(
+            var result = await LevelRepository.DeleteAsync(
                 CurrentEvent!.Id,
                 _userId!.Value,
                 cell.X,
                 cell.Y,
                 new DeleteLevelCellRequest(Guid.NewGuid()));
             Editor.DeleteSelectedObject();
+            await AcceptMutationAsync(result, cell);
         });
+    }
+
+    private async Task AcceptMutationAsync(
+        LevelMutation result,
+        EditorCell target,
+        EditorCell? source = null)
+    {
+        _levelRevision = Math.Max(_levelRevision, result.Revision);
+        Cooldown.SetNextActionAt(result.NextPlacementAt);
+        if (result.IsReplay)
+        {
+            return;
+        }
+
+        await Realtime.PublishAsync(new LevelChange(
+            CurrentEvent!.Id,
+            _userId!.Value,
+            result.Action,
+            result.Revision,
+            target.X,
+            target.Y,
+            source?.X,
+            source?.Y,
+            result.NextPlacementAt,
+            result.Cell));
+    }
+
+    private Task HandleLevelChangedAsync(LevelChange change) => InvokeAsync(async () =>
+    {
+        if (CurrentEvent is null || change.EventId != CurrentEvent.Id)
+        {
+            return;
+        }
+
+        if (change.ActorUserId == _userId)
+        {
+            Cooldown.SetNextActionAt(change.NextPlacementAt);
+        }
+
+        if (change.Revision <= _levelRevision)
+        {
+            return;
+        }
+
+        if (change.Revision != _levelRevision + 1)
+        {
+            await ReloadLevelSafelyAsync(preserveDraft: true);
+            return;
+        }
+
+        var source = change.SourceX is { } sourceX && change.SourceY is { } sourceY
+            ? new EditorCell(sourceX, sourceY)
+            : (EditorCell?)null;
+        Editor.ApplyConfirmedObject(
+            new EditorCell(change.X, change.Y),
+            change.Cell is null ? null : ToEditorObject(change.Cell),
+            source);
+        _levelRevision = change.Revision;
+        StateHasChanged();
+    });
+
+    private async Task RunCooldownClockAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
     }
 
     private async Task ExecuteMutationAsync(Func<Task> mutation)
@@ -171,6 +271,10 @@ public partial class Home : ComponentBase, IDisposable
         }
         catch (LevelPersistenceException exception)
         {
+            if (exception.RetryAt is { } nextActionAt)
+            {
+                Cooldown.SetNextActionAt(nextActionAt);
+            }
             StatusMessage = exception.RetryAt is { } retryAt
                 ? $"{exception.Message} Try again at {retryAt.LocalDateTime:T}."
                 : exception.Message;
@@ -189,7 +293,7 @@ public partial class Home : ComponentBase, IDisposable
         }
     }
 
-    private async Task ReloadLevelAsync()
+    private async Task ReloadLevelAsync(bool preserveDraft = false)
     {
         if (CurrentEvent is null)
         {
@@ -197,26 +301,23 @@ public partial class Home : ComponentBase, IDisposable
         }
 
         var state = await LevelRepository.LoadAsync(CurrentEvent.Id);
-        Editor.LoadConfirmedObjects(state.Cells.Select(cell => new EditorObjectInstance
+        _levelRevision = state.Revision;
+        var objects = state.Cells.Select(ToEditorObject);
+        if (preserveDraft)
         {
-            Type = cell.Type,
-            X = cell.X,
-            Y = cell.Y,
-            Rotation = cell.Rotation,
-            ScaleX = cell.ScaleX,
-            ScaleY = cell.ScaleY,
-            Red = cell.Red ?? 255,
-            Green = cell.Green ?? 255,
-            Blue = cell.Blue ?? 255,
-            Duration = cell.Duration ?? 0.2
-        }));
+            Editor.SynchronizeConfirmedObjects(objects);
+        }
+        else
+        {
+            Editor.LoadConfirmedObjects(objects);
+        }
     }
 
-    private async Task ReloadLevelSafelyAsync()
+    private async Task ReloadLevelSafelyAsync(bool preserveDraft = false)
     {
         try
         {
-            await ReloadLevelAsync();
+            await ReloadLevelAsync(preserveDraft);
         }
         catch (Exception exception)
         {
@@ -224,6 +325,24 @@ public partial class Home : ComponentBase, IDisposable
         }
     }
 
+    private static EditorObjectInstance ToEditorObject(LevelCell cell) => new()
+    {
+        Type = cell.Type,
+        X = cell.X,
+        Y = cell.Y,
+        Rotation = cell.Rotation,
+        ScaleX = cell.ScaleX,
+        ScaleY = cell.ScaleY,
+        Red = cell.Red ?? 255,
+        Green = cell.Green ?? 255,
+        Blue = cell.Blue ?? 255,
+        Duration = cell.Duration ?? 0.2
+    };
+
     private bool CanPersist() =>
-        IsAuthenticated && _userId is not null && CurrentEvent is not null && !IsSaving;
+        IsAuthenticated &&
+        _userId is not null &&
+        CurrentEvent is not null &&
+        !IsSaving &&
+        Cooldown.IsReady;
 }

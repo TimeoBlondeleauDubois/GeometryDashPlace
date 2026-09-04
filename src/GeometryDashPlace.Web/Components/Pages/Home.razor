@@ -24,42 +24,49 @@ else
 {
     <CascadingValue Value="Editor">
         <CascadingValue Value="Actions">
-            <main class="editor-page">
-                <EditorViewport />
-                <EditorToolbar />
+            <CascadingValue Value="Cooldown">
+                <main class="editor-page">
+                    <EditorViewport />
+                    <EditorToolbar />
 
-                <aside class="editor-account-panel" aria-label="Account">
-                    <span class="account-event-name">
-                        <GeometryDashText Text="@CurrentEvent.Name" Height="15" />
-                    </span>
                     @if (IsAuthenticated)
                     {
-                        <span class="account-user-name" title="@UserDisplayName">@UserDisplayName</span>
-                        <a class="account-action" href="/logout">
-                            <GeometryDashText Text="LOG OUT" Height="14" />
-                        </a>
+                        <CooldownDisplay />
                     }
-                    else
+
+                    <aside class="editor-account-panel" aria-label="Account">
+                        <span class="account-event-name">
+                            <GeometryDashText Text="@CurrentEvent.Name" Height="15" />
+                        </span>
+                        @if (IsAuthenticated)
+                        {
+                            <span class="account-user-name" title="@UserDisplayName">@UserDisplayName</span>
+                            <a class="account-action" href="/logout">
+                                <GeometryDashText Text="LOG OUT" Height="14" />
+                            </a>
+                        }
+                        else
+                        {
+                            <a class="account-action" href="/login/google">
+                                <GeometryDashText Text="SIGN IN" Height="14" />
+                            </a>
+                        }
+                    </aside>
+
+                    @if (!IsAuthenticated)
                     {
-                        <a class="account-action" href="/login/google">
-                            <GeometryDashText Text="SIGN IN" Height="14" />
-                        </a>
+                        <div class="editor-auth-guard">
+                            <GeometryDashText Text="SIGN IN TO BUILD" Height="30" />
+                            <a class="google-login" href="/login/google">GOOGLE</a>
+                        </div>
                     }
-                </aside>
 
-                @if (!IsAuthenticated)
-                {
-                    <div class="editor-auth-guard">
-                        <GeometryDashText Text="SIGN IN TO BUILD" Height="30" />
-                        <a class="google-login" href="/login/google">GOOGLE</a>
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(StatusMessage))
-                {
-                    <div class="editor-persistence-message" role="status">@StatusMessage</div>
-                }
-            </main>
+                    @if (!string.IsNullOrWhiteSpace(StatusMessage))
+                    {
+                        <div class="editor-persistence-message" role="status">@StatusMessage</div>
+                    }
+                </main>
+            </CascadingValue>
         </CascadingValue>
     </CascadingValue>
 }

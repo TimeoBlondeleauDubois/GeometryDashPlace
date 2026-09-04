@@ -56,7 +56,8 @@ public static class GoogleAuthExtensions
                     : CookieSecurePolicy.Always;
                 options.Events.OnRedirectToLogin = context =>
                 {
-                    if (context.Request.Path.StartsWithSegments("/api"))
+                    if (context.Request.Path.StartsWithSegments("/api") ||
+                        context.Request.Path.StartsWithSegments("/hubs"))
                     {
                         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
                     }
@@ -69,7 +70,8 @@ public static class GoogleAuthExtensions
                 };
                 options.Events.OnRedirectToAccessDenied = context =>
                 {
-                    if (context.Request.Path.StartsWithSegments("/api"))
+                    if (context.Request.Path.StartsWithSegments("/api") ||
+                        context.Request.Path.StartsWithSegments("/hubs"))
                     {
                         context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     }
