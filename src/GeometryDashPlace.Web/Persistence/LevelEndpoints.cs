@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using GeometryDashPlace.Web.Auth;
+using GeometryDashPlace.Web.Realtime;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GeometryDashPlace.Web.Persistence;
@@ -42,6 +43,7 @@ public static class LevelEndpoints
         [FromBody] PlaceLevelCellRequest request,
         ClaimsPrincipal principal,
         ILevelRepository repository,
+        LevelRealtimeService realtime,
         CancellationToken cancellationToken)
     {
         try
@@ -53,6 +55,12 @@ public static class LevelEndpoints
 
             var result = await repository.PlaceAsync(
                 eventId, userId, x, y, request, cancellationToken);
+            if (!result.IsReplay)
+            {
+                await realtime.PublishAsync(new LevelChange(
+                    eventId, userId, result.Action, result.Revision,
+                    x, y, null, null, result.NextPlacementAt, result.Cell));
+            }
             return Results.Ok(result);
         }
         catch (LevelPersistenceException exception)
@@ -68,6 +76,7 @@ public static class LevelEndpoints
         [FromBody] DeleteLevelCellRequest request,
         ClaimsPrincipal principal,
         ILevelRepository repository,
+        LevelRealtimeService realtime,
         CancellationToken cancellationToken)
     {
         try
@@ -79,6 +88,12 @@ public static class LevelEndpoints
 
             var result = await repository.DeleteAsync(
                 eventId, userId, x, y, request, cancellationToken);
+            if (!result.IsReplay)
+            {
+                await realtime.PublishAsync(new LevelChange(
+                    eventId, userId, result.Action, result.Revision,
+                    x, y, null, null, result.NextPlacementAt, null));
+            }
             return Results.Ok(result);
         }
         catch (LevelPersistenceException exception)
@@ -94,6 +109,7 @@ public static class LevelEndpoints
         [FromBody] MoveLevelCellRequest request,
         ClaimsPrincipal principal,
         ILevelRepository repository,
+        LevelRealtimeService realtime,
         CancellationToken cancellationToken)
     {
         try
@@ -105,6 +121,13 @@ public static class LevelEndpoints
 
             var result = await repository.MoveAsync(
                 eventId, userId, sourceX, sourceY, request, cancellationToken);
+            if (!result.IsReplay)
+            {
+                await realtime.PublishAsync(new LevelChange(
+                    eventId, userId, result.Action, result.Revision,
+                    request.TargetX, request.TargetY, sourceX, sourceY,
+                    result.NextPlacementAt, result.Cell));
+            }
             return Results.Ok(result);
         }
         catch (LevelPersistenceException exception)

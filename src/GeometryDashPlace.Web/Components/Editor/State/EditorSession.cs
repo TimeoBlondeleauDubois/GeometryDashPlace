@@ -350,6 +350,21 @@ public sealed class EditorSession
 
     public void LoadConfirmedObjects(IEnumerable<EditorObjectInstance> objects)
     {
+        ReplaceConfirmedObjects(objects);
+        ClearPendingSelection(false);
+        BuildObjectArmed = false;
+        SelectedObjectType = null;
+        NotifyChanged();
+    }
+
+    public void SynchronizeConfirmedObjects(IEnumerable<EditorObjectInstance> objects)
+    {
+        ReplaceConfirmedObjects(objects);
+        NotifyChanged();
+    }
+
+    private void ReplaceConfirmedObjects(IEnumerable<EditorObjectInstance> objects)
+    {
         _objects.Clear();
         foreach (var instance in objects)
         {
@@ -364,10 +379,30 @@ public sealed class EditorSession
             confirmed.Rotation = ConstrainRotation(confirmed.Type, confirmed.Rotation);
             _objects[CellKey(confirmed.X, confirmed.Y)] = confirmed;
         }
+    }
 
-        ClearPendingSelection(false);
-        BuildObjectArmed = false;
-        SelectedObjectType = null;
+    public void ApplyConfirmedObject(
+        EditorCell target,
+        EditorObjectInstance? instance,
+        EditorCell? source = null)
+    {
+        if (source is { } sourceCell)
+        {
+            _objects.Remove(CellKey(sourceCell.X, sourceCell.Y));
+        }
+
+        var targetKey = CellKey(target.X, target.Y);
+        if (instance is null)
+        {
+            _objects.Remove(targetKey);
+        }
+        else if (_definitionByType.ContainsKey(CatalogTypeFor(instance.Type)))
+        {
+            var confirmed = instance.Clone();
+            confirmed.Rotation = ConstrainRotation(confirmed.Type, confirmed.Rotation);
+            _objects[targetKey] = confirmed;
+        }
+
         NotifyChanged();
     }
 
