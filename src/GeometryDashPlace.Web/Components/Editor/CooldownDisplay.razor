@@ -1,0 +1,11 @@
+<aside class="cooldown-display @(Cooldown.IsReady ? "is-ready" : Cooldown.IsUrgent ? "is-urgent" : "is-waiting")"
+       aria-live="polite"
+       aria-label="Next action available in @Cooldown.DisplayText">
+    <small><GeometryDashText Text="NEXT ACTION" Height="12" /></small>
+    <strong><GeometryDashText Text="@Cooldown.DisplayText" Height="25" /></strong>
+</aside>
+
+@code {
+    [CascadingParameter]
+    public required EditorCooldownState Cooldown { get; set; }
+}

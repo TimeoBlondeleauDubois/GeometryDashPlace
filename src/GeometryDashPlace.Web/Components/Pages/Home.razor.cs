@@ -27,6 +27,7 @@ public partial class Home : ComponentBase, IDisposable
     private ILogger<Home> Logger { get; set; } = default!;
 
     protected EditorSession Editor { get; } = new(EditorObjectCatalog.All);
+    protected EditorCooldownState Cooldown { get; } = new();
     protected EditorPersistenceActions Actions { get; }
     protected LevelEvent? CurrentEvent { get; private set; }
     protected bool IsAuthenticated { get; private set; }
@@ -35,12 +36,14 @@ public partial class Home : ComponentBase, IDisposable
     protected string? UserDisplayName { get; private set; }
     protected string? StatusMessage { get; private set; }
     private Guid? _userId;
+    private readonly CancellationTokenSource _lifetime = new();
     private IDisposable? _levelSubscription;
     private long _levelRevision;
 
     public Home()
     {
-        Actions = new EditorPersistenceActions(ConfirmPlacementAsync, DeleteSelectedObjectAsync);
+        Actions = new EditorPersistenceActions(
+            ConfirmPlacementAsync, DeleteSelectedObjectAsync, CanPersist);
     }
 
     protected override async Task OnInitializedAsync()
@@ -74,6 +77,13 @@ public partial class Home : ComponentBase, IDisposable
             _levelSubscription = Realtime.Subscribe(
                 CurrentEvent.Id, HandleLevelChangedAsync);
             await ReloadLevelSafelyAsync();
+            if (IsAuthenticated && _userId is { } authenticatedUserId)
+            {
+                var cooldown = await LevelRepository.GetCooldownAsync(
+                    CurrentEvent.Id, authenticatedUserId);
+                Cooldown.Synchronize(cooldown.ServerTime, cooldown.NextPlacementAt);
+                _ = RunCooldownClockAsync(_lifetime.Token);
+            }
         }
         catch (Exception exception)
         {
@@ -88,6 +98,7 @@ public partial class Home : ComponentBase, IDisposable
 
     public void Dispose()
     {
+        _lifetime.Cancel();
         _levelSubscription?.Dispose();
         Editor.Changed -= HandleEditorChanged;
     }
@@ -176,6 +187,7 @@ public partial class Home : ComponentBase, IDisposable
         EditorCell? source = null)
     {
         _levelRevision = Math.Max(_levelRevision, result.Revision);
+        Cooldown.SetNextActionAt(result.NextPlacementAt);
         if (result.IsReplay)
         {
             return;
@@ -201,6 +213,11 @@ public partial class Home : ComponentBase, IDisposable
             return;
         }
 
+        if (change.ActorUserId == _userId)
+        {
+            Cooldown.SetNextActionAt(change.NextPlacementAt);
+        }
+
         if (change.Revision <= _levelRevision)
         {
             return;
@@ -223,6 +240,21 @@ public partial class Home : ComponentBase, IDisposable
         StateHasChanged();
     });
 
+    private async Task RunCooldownClockAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
     private async Task ExecuteMutationAsync(Func<Task> mutation)
     {
         if (IsSaving)
@@ -239,6 +271,10 @@ public partial class Home : ComponentBase, IDisposable
         }
         catch (LevelPersistenceException exception)
         {
+            if (exception.RetryAt is { } nextActionAt)
+            {
+                Cooldown.SetNextActionAt(nextActionAt);
+            }
             StatusMessage = exception.RetryAt is { } retryAt
                 ? $"{exception.Message} Try again at {retryAt.LocalDateTime:T}."
                 : exception.Message;
@@ -307,5 +343,6 @@ public partial class Home : ComponentBase, IDisposable
         IsAuthenticated &&
         _userId is not null &&
         CurrentEvent is not null &&
-        !IsSaving;
+        !IsSaving &&
+        Cooldown.IsReady;
 }

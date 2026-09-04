@@ -3,7 +3,7 @@
             type="button"
             aria-label="@(Editor.Mode == EditorMode.Delete ? "Confirm deletion" : "Confirm placement")"
             title="@(Editor.Mode == EditorMode.Delete ? "Confirm deletion" : "Confirm placement")"
-            disabled="@(!Editor.CanValidate)"
+            disabled="@(!Editor.CanValidate || !Actions.CanExecute())"
             @onclick="ConfirmAsync">
         <img src="/assets/ui/editor/confirmation/confirm-checkmark.png"
              alt=""
