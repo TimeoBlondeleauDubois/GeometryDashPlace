@@ -2,11 +2,17 @@ namespace GeometryDashPlace.Web.Components.Editor.State;
 
 public sealed class EditorCooldownState
 {
+    private readonly TimeProvider _timeProvider;
     private TimeSpan _serverOffset;
+
+    public EditorCooldownState(TimeProvider? timeProvider = null)
+    {
+        _timeProvider = timeProvider ?? TimeProvider.System;
+    }
 
     public DateTimeOffset? NextActionAt { get; private set; }
     public TimeSpan Remaining => NextActionAt is { } next
-        ? next - (DateTimeOffset.UtcNow + _serverOffset)
+        ? next - (_timeProvider.GetUtcNow() + _serverOffset)
         : TimeSpan.Zero;
     public bool IsReady => Remaining <= TimeSpan.Zero;
     public bool IsUrgent => !IsReady && Remaining <= TimeSpan.FromSeconds(10);
@@ -26,7 +32,7 @@ public sealed class EditorCooldownState
 
     public void Synchronize(DateTimeOffset serverTime, DateTimeOffset? nextActionAt)
     {
-        _serverOffset = serverTime - DateTimeOffset.UtcNow;
+        _serverOffset = serverTime - _timeProvider.GetUtcNow();
         NextActionAt = nextActionAt;
     }
 
