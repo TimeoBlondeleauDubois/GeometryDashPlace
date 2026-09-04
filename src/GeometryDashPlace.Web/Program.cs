@@ -1,9 +1,10 @@
 using DotNetEnv;
 using GeometryDashPlace.Web.Auth;
 using GeometryDashPlace.Web.Components;
+using GeometryDashPlace.Web.Data;
 using GeometryDashPlace.Web.Events;
 using GeometryDashPlace.Web.Persistence;
-using Npgsql;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,9 +28,10 @@ var connectionString = builder.Environment.IsDevelopment()
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
-builder.Services.AddScoped<ILevelRepository, PostgresLevelRepository>();
-builder.Services.AddScoped<ILevelEventRepository, PostgresLevelEventRepository>();
+builder.Services.AddDbContextFactory<GeometryDashPlaceDbContext>(
+    options => options.UseNpgsql(connectionString));
+builder.Services.AddScoped<ILevelRepository, EntityFrameworkLevelRepository>();
+builder.Services.AddScoped<ILevelEventRepository, EntityFrameworkLevelEventRepository>();
 builder.Services.AddGoogleAuthentication(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
