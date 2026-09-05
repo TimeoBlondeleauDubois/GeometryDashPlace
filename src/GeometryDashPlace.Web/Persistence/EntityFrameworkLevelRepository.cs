@@ -41,6 +41,57 @@ public sealed class EntityFrameworkLevelRepository(
         return new LevelState(eventId, revision, cells);
     }
 
+    public async Task<LevelState> LoadRevisionAsync(
+        Guid eventId,
+        long revision,
+        CancellationToken cancellationToken = default)
+    {
+        if (revision < 0)
+        {
+            throw Error(
+                "invalid_revision", "Revision must be zero or greater.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+        await using var transaction = await context.Database.BeginTransactionAsync(
+            IsolationLevel.RepeatableRead, cancellationToken);
+        var currentRevision = await context.Events
+            .AsNoTracking()
+            .Where(levelEvent => levelEvent.Id == eventId)
+            .Select(levelEvent => (long?)levelEvent.CurrentRevision)
+            .SingleOrDefaultAsync(cancellationToken)
+            ?? throw Error(
+                "event_not_found", "The event does not exist.",
+                StatusCodes.Status404NotFound);
+        if (revision > currentRevision)
+        {
+            throw Error(
+                "revision_not_found",
+                $"Revision {revision} does not exist. The current revision is {currentRevision}.",
+                StatusCodes.Status404NotFound);
+        }
+
+        var snapshot = await context.LevelSnapshots
+            .AsNoTracking()
+            .Where(candidate => candidate.EventId == eventId &&
+                                candidate.Revision <= revision)
+            .OrderByDescending(candidate => candidate.Revision)
+            .FirstOrDefaultAsync(cancellationToken);
+        var baseRevision = snapshot?.Revision ?? 0;
+        var history = await context.PlacementHistory
+            .AsNoTracking()
+            .Where(change => change.EventId == eventId &&
+                             change.Revision > baseRevision &&
+                             change.Revision <= revision)
+            .OrderBy(change => change.Revision)
+            .ToListAsync(cancellationToken);
+        EnsureCompleteHistory(baseRevision, revision, history);
+        var cells = ReconstructLevel(snapshot?.State ?? [], history);
+        await transaction.CommitAsync(cancellationToken);
+        return new LevelState(eventId, revision, cells);
+    }
+
     public async Task<LevelCooldownState> GetCooldownAsync(
         Guid eventId,
         Guid userId,
@@ -509,6 +560,91 @@ public sealed class EntityFrameworkLevelRepository(
                 eventId);
         }
     }
+
+    private static void EnsureCompleteHistory(
+        long baseRevision,
+        long targetRevision,
+        IReadOnlyList<PlacementHistoryEntity> history)
+    {
+        if (history.Count != targetRevision - baseRevision)
+        {
+            throw IncompleteHistory();
+        }
+
+        for (var index = 0; index < history.Count; index++)
+        {
+            if (history[index].Revision != baseRevision + index + 1)
+            {
+                throw IncompleteHistory();
+            }
+        }
+    }
+
+    private static IReadOnlyList<LevelCell> ReconstructLevel(
+        IEnumerable<LevelCell> snapshotState,
+        IEnumerable<PlacementHistoryEntity> history)
+    {
+        var cells = new Dictionary<(int X, int Y), LevelCell>();
+        foreach (var cell in snapshotState)
+        {
+            if (!cells.TryAdd((cell.X, cell.Y), cell))
+            {
+                throw IncompleteHistory();
+            }
+        }
+
+        foreach (var change in history)
+        {
+            var target = (change.X, change.Y);
+            switch (change.Action)
+            {
+                case "place" when change.NewObject is not null &&
+                                       !cells.ContainsKey(target):
+                    cells[target] = change.NewObject;
+                    break;
+                case "replace" when change.NewObject is not null &&
+                                         cells.ContainsKey(target):
+                    cells[target] = change.NewObject;
+                    break;
+                case "delete" when cells.Remove(target):
+                    break;
+                case "move" when TryApplyMove(cells, change, replaceTarget: false):
+                case "move_replace" when TryApplyMove(cells, change, replaceTarget: true):
+                    break;
+                default:
+                    throw IncompleteHistory();
+            }
+        }
+
+        return cells.Values
+            .OrderBy(cell => cell.X)
+            .ThenBy(cell => cell.Y)
+            .ToArray();
+    }
+
+    private static bool TryApplyMove(
+        Dictionary<(int X, int Y), LevelCell> cells,
+        PlacementHistoryEntity change,
+        bool replaceTarget)
+    {
+        if (change.SourceX is not { } sourceX ||
+            change.SourceY is not { } sourceY ||
+            change.NewObject is null ||
+            !cells.ContainsKey((sourceX, sourceY)) ||
+            cells.ContainsKey((change.X, change.Y)) != replaceTarget)
+        {
+            return false;
+        }
+
+        cells.Remove((sourceX, sourceY));
+        cells[(change.X, change.Y)] = change.NewObject;
+        return true;
+    }
+
+    private static LevelPersistenceException IncompleteHistory() => Error(
+        "history_incomplete",
+        "The stored history cannot reconstruct the requested revision.",
+        StatusCodes.Status409Conflict);
 
     private static LevelCell ToLevelCell(LevelCellEntity cell, string author) => new(
         cell.X,
