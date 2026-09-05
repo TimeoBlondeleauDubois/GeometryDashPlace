@@ -8,4 +8,7 @@ public sealed record LevelEvent(
     int Width,
     int Height,
     int CooldownSeconds,
-    long Revision);
+    long Revision,
+    string Status,
+    DateTimeOffset? StartsAt,
+    DateTimeOffset? EndsAt);

@@ -12,6 +12,20 @@ public static class LevelEventEndpoints
             return currentEvent is null ? Results.NotFound() : Results.Ok(currentEvent);
         });
 
+        endpoints.MapGet("/api/events", async (
+            ILevelEventRepository repository,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await repository.GetPastAsync(cancellationToken)));
+
+        endpoints.MapGet("/api/events/{slug}", async (
+            string slug,
+            ILevelEventRepository repository,
+            CancellationToken cancellationToken) =>
+        {
+            var levelEvent = await repository.GetBySlugAsync(slug, cancellationToken);
+            return levelEvent is null ? Results.NotFound() : Results.Ok(levelEvent);
+        });
+
         return endpoints;
     }
 }
