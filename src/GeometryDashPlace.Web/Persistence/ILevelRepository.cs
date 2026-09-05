@@ -4,6 +4,11 @@ public interface ILevelRepository
 {
     Task<LevelState> LoadAsync(Guid eventId, CancellationToken cancellationToken = default);
 
+    Task<LevelState> LoadRevisionAsync(
+        Guid eventId,
+        long revision,
+        CancellationToken cancellationToken = default);
+
     Task<LevelCooldownState> GetCooldownAsync(
         Guid eventId,
         Guid userId,

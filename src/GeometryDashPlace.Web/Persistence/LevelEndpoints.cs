@@ -14,6 +14,7 @@ public static class LevelEndpoints
             .WithTags("Level");
 
         level.MapGet("/", LoadAsync);
+        level.MapGet("/revisions/{revision:long}", LoadRevisionAsync);
         level.MapGet("/cooldown", GetCooldownAsync).RequireAuthorization();
         level.MapPut("/cells/{x:int}/{y:int}", PlaceAsync).RequireAuthorization();
         level.MapDelete("/cells/{x:int}/{y:int}", DeleteAsync).RequireAuthorization();
@@ -30,6 +31,23 @@ public static class LevelEndpoints
         try
         {
             return Results.Ok(await repository.LoadAsync(eventId, cancellationToken));
+        }
+        catch (LevelPersistenceException exception)
+        {
+            return ToProblem(exception);
+        }
+    }
+
+    private static async Task<IResult> LoadRevisionAsync(
+        Guid eventId,
+        long revision,
+        ILevelRepository repository,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Results.Ok(await repository.LoadRevisionAsync(
+                eventId, revision, cancellationToken));
         }
         catch (LevelPersistenceException exception)
         {
