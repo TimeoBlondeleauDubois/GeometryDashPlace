@@ -7,8 +7,10 @@ using Npgsql;
 namespace GeometryDashPlace.Web.Persistence;
 
 public sealed class EntityFrameworkLevelRepository(
-    IDbContextFactory<GeometryDashPlaceDbContext> contextFactory) : ILevelRepository
+    IDbContextFactory<GeometryDashPlaceDbContext> contextFactory,
+    ILogger<EntityFrameworkLevelRepository> logger) : ILevelRepository
 {
+    private static readonly TimeSpan HourlySnapshotInterval = TimeSpan.FromHours(1);
     private const double MinimumScale = 0.5;
     private const double MaximumScale = 2;
 
@@ -115,8 +117,13 @@ public sealed class EntityFrameworkLevelRepository(
                 revision, previous, cell));
             var nextPlacementAt = AdvanceCooldown(
                 userState, now, levelEvent.CooldownSeconds);
-            await context.SaveChangesAsync(cancellationToken);
+            var snapshotDue = await SaveMutationAsync(
+                context, levelEvent, now, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            if (snapshotDue)
+            {
+                await CreateHourlySnapshotSafelyAsync(eventId);
+            }
             return new LevelMutation(action, revision, nextPlacementAt, cell);
         }
         catch (Exception exception) when (IsConcurrencyFailure(exception))
@@ -169,8 +176,13 @@ public sealed class EntityFrameworkLevelRepository(
                 revision, previous, null));
             var nextPlacementAt = AdvanceCooldown(
                 userState, now, levelEvent.CooldownSeconds);
-            await context.SaveChangesAsync(cancellationToken);
+            var snapshotDue = await SaveMutationAsync(
+                context, levelEvent, now, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            if (snapshotDue)
+            {
+                await CreateHourlySnapshotSafelyAsync(eventId);
+            }
             return new LevelMutation("delete", revision, nextPlacementAt, null);
         }
         catch (Exception exception) when (IsConcurrencyFailure(exception))
@@ -262,8 +274,13 @@ public sealed class EntityFrameworkLevelRepository(
                 previous, cell, sourceX, sourceY, replacedCell));
             var nextPlacementAt = AdvanceCooldown(
                 userState, now, levelEvent.CooldownSeconds);
-            await context.SaveChangesAsync(cancellationToken);
+            var snapshotDue = await SaveMutationAsync(
+                context, levelEvent, now, cancellationToken);
             await transaction.CommitAsync(cancellationToken);
+            if (snapshotDue)
+            {
+                await CreateHourlySnapshotSafelyAsync(eventId);
+            }
             return new LevelMutation(action, revision, nextPlacementAt, cell);
         }
         catch (Exception exception) when (IsConcurrencyFailure(exception))
@@ -429,6 +446,68 @@ public sealed class EntityFrameworkLevelRepository(
         state.LastPlacementAt = now;
         state.NextPlacementAt = now.AddSeconds(cooldownSeconds);
         return state.NextPlacementAt;
+    }
+
+    private static async Task<bool> SaveMutationAsync(
+        GeometryDashPlaceDbContext context,
+        LevelEventEntity levelEvent,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var snapshotDue = levelEvent.LastSnapshotAt is null ||
+            levelEvent.LastSnapshotAt <= now - HourlySnapshotInterval;
+        if (snapshotDue)
+        {
+            levelEvent.LastSnapshotAt = now;
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
+        return snapshotDue;
+    }
+
+    private async Task CreateHourlySnapshotSafelyAsync(Guid eventId)
+    {
+        try
+        {
+            await using var context = await contextFactory.CreateDbContextAsync();
+            await using var transaction = await context.Database.BeginTransactionAsync(
+                IsolationLevel.RepeatableRead);
+            var revision = await context.Events
+                .AsNoTracking()
+                .Where(levelEvent => levelEvent.Id == eventId)
+                .Select(levelEvent => (long?)levelEvent.CurrentRevision)
+                .SingleOrDefaultAsync();
+            if (revision is null)
+            {
+                return;
+            }
+
+            var state = await context.LevelCells
+                .AsNoTracking()
+                .Include(cell => cell.Author)
+                .Where(cell => cell.EventId == eventId)
+                .OrderBy(cell => cell.X)
+                .ThenBy(cell => cell.Y)
+                .Select(cell => ToLevelCell(cell, cell.Author.DisplayName))
+                .ToListAsync();
+            context.LevelSnapshots.Add(new LevelSnapshotEntity
+            {
+                EventId = eventId,
+                Revision = revision.Value,
+                SnapshotType = "hourly",
+                State = state,
+                CreatedAt = DateTimeOffset.UtcNow
+            });
+            await context.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "Unable to create the hourly snapshot for event {EventId}.",
+                eventId);
+        }
     }
 
     private static LevelCell ToLevelCell(LevelCellEntity cell, string author) => new(
