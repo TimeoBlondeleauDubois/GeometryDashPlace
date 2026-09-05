@@ -13,26 +13,19 @@ public sealed class PostgreSqlIntegrationFixture : IAsyncLifetime
 
     private readonly string? _externalConnectionString =
         Environment.GetEnvironmentVariable(ExternalConnectionStringVariable);
-    private readonly PostgreSqlContainer? _container;
+    private PostgreSqlContainer? _container;
 
     public PostgreSqlIntegrationFixture()
     {
         if (!string.IsNullOrWhiteSpace(_externalConnectionString))
         {
             var connection = new NpgsqlConnectionStringBuilder(_externalConnectionString);
-            if (!connection.Database.EndsWith("_tests", StringComparison.OrdinalIgnoreCase))
+            if (string.IsNullOrWhiteSpace(connection.Database) ||
+                !connection.Database.EndsWith("_tests", StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidOperationException(
                     $"The database configured by {ExternalConnectionStringVariable} must end with '_tests'.");
             }
-        }
-        else
-        {
-            _container = new PostgreSqlBuilder("postgres:17")
-                .WithDatabase("geometry_dash_place_tests")
-                .WithUsername("geometrydashplace_tests")
-                .WithPassword("geometrydashplace_tests")
-                .Build();
         }
     }
 
@@ -43,8 +36,18 @@ public sealed class PostgreSqlIntegrationFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        if (_container is not null)
+        if (!PostgreSqlTestEnvironment.IsAvailable)
         {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_externalConnectionString))
+        {
+            _container = new PostgreSqlBuilder("postgres:17")
+                .WithDatabase("geometry_dash_place_tests")
+                .WithUsername("geometrydashplace_tests")
+                .WithPassword("geometrydashplace_tests")
+                .Build();
             await _container.StartAsync();
 
             var scriptDirectory = Path.Combine(AppContext.BaseDirectory, "Sql");

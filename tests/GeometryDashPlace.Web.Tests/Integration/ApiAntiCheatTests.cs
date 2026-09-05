@@ -6,8 +6,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GeometryDashPlace.Web.Tests.Integration;
 
-public sealed class ApiAntiCheatTests(
-    PostgreSqlIntegrationFixture database) : IClassFixture<PostgreSqlIntegrationFixture>
+[Collection(PostgreSqlIntegrationCollection.Name)]
+public sealed class ApiAntiCheatTests(PostgreSqlIntegrationFixture database)
 {
     public static TheoryData<int, int, PlaceLevelCellRequest, string> InvalidPlacements => new()
     {
@@ -45,7 +45,7 @@ public sealed class ApiAntiCheatTests(
         }
     };
 
-    [Fact]
+    [PostgreSqlFact]
     public async Task AnonymousMutation_IsRejectedBeforeDatabaseChanges()
     {
         var scenario = await database.CreateScenarioAsync();
@@ -59,7 +59,7 @@ public sealed class ApiAntiCheatTests(
         await AssertEmptyLevelAsync(scenario.EventId);
     }
 
-    [Fact]
+    [PostgreSqlFact]
     public async Task BannedUser_CannotReuseAnExistingSessionToPlace()
     {
         var scenario = await database.CreateScenarioAsync(isBanned: true);
@@ -73,7 +73,7 @@ public sealed class ApiAntiCheatTests(
         await AssertEmptyLevelAsync(scenario.EventId);
     }
 
-    [Theory]
+    [PostgreSqlTheory]
     [MemberData(nameof(InvalidPlacements))]
     public async Task ForgedInvalidPlacement_IsRejectedWithoutConsumingTheTurn(
         int x,
@@ -91,7 +91,7 @@ public sealed class ApiAntiCheatTests(
         await AssertEmptyLevelAsync(scenario.EventId);
     }
 
-    [Fact]
+    [PostgreSqlFact]
     public async Task ClosedEvent_CannotBeModified()
     {
         var scenario = await database.CreateScenarioAsync(eventStatus: "closed");
@@ -105,7 +105,7 @@ public sealed class ApiAntiCheatTests(
         await AssertEmptyLevelAsync(scenario.EventId);
     }
 
-    [Fact]
+    [PostgreSqlFact]
     public async Task Cooldown_CannotBeBypassedWithAnotherRequest()
     {
         var scenario = await database.CreateScenarioAsync(cooldownSeconds: 60);
@@ -134,7 +134,7 @@ public sealed class ApiAntiCheatTests(
         Assert.Equal(1, state.PlacementCount);
     }
 
-    [Fact]
+    [PostgreSqlFact]
     public async Task IdenticalRequestReplay_IsIdempotentDuringCooldown()
     {
         var scenario = await database.CreateScenarioAsync(cooldownSeconds: 60);
@@ -161,7 +161,7 @@ public sealed class ApiAntiCheatTests(
                      state.UserId == scenario.UserId)).PlacementCount);
     }
 
-    [Fact]
+    [PostgreSqlFact]
     public async Task ReusedRequestId_ForDifferentMutationIsRejected()
     {
         var scenario = await database.CreateScenarioAsync();
@@ -186,7 +186,7 @@ public sealed class ApiAntiCheatTests(
             history => history.EventId == scenario.EventId));
     }
 
-    [Fact]
+    [PostgreSqlFact]
     public async Task ConcurrentPlacements_ConvergeToUniqueAtomicRevisions()
     {
         const int placementCount = 6;
@@ -235,6 +235,7 @@ public sealed class ApiAntiCheatTests(
             levelEvent => levelEvent.Id == eventId)).CurrentRevision);
         Assert.False(await context.LevelCells.AnyAsync(cell => cell.EventId == eventId));
         Assert.False(await context.PlacementHistory.AnyAsync(history => history.EventId == eventId));
+        Assert.False(await context.LevelSnapshots.AnyAsync(snapshot => snapshot.EventId == eventId));
         Assert.False(await context.UserEventStates.AnyAsync(state => state.EventId == eventId));
     }
 
