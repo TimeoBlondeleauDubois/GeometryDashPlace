@@ -1,0 +1,196 @@
+@page "/events/{Slug}"
+@rendermode InteractiveServer
+@using System.Globalization
+@using GeometryDashPlace.Web.Components.Editor.State
+@using GeometryDashPlace.Web.Events
+@using GeometryDashPlace.Web.Persistence
+@inject ILevelEventRepository EventRepository
+@inject ILevelRepository LevelRepository
+
+<PageTitle>@(_event is null ? "Event history" : $"{_event.Name} history") - Geometry Dash Place</PageTitle>
+
+@if (_isInitialLoading)
+{
+    <main class="history-state-page">
+        <GeometryDashText Text="LOADING HISTORY" Height="31" />
+    </main>
+}
+else if (_event is null)
+{
+    <main class="history-state-page">
+        <GeometryDashText Text="EVENT NOT FOUND" Height="31" />
+        <a class="history-link-button" href="/events">
+            <GeometryDashText Text="EVENTS" Height="16" />
+        </a>
+    </main>
+}
+else
+{
+    <CascadingValue Value="Editor">
+        <main class="history-page">
+            <EditorViewport ReadOnly="true" />
+
+            <header class="history-header">
+                <a class="history-link-button" href="/events">
+                    <GeometryDashText Text="EVENTS" Height="14" />
+                </a>
+                <span class="history-event-name">
+                    <GeometryDashText Text="@_event.Name" Height="16" />
+                </span>
+                @if (_isCurrentEvent)
+                {
+                    <a class="history-link-button history-live-button" href="/">
+                        <GeometryDashText Text="LIVE" Height="14" />
+                    </a>
+                }
+            </header>
+
+            <section class="history-controls" aria-label="Revision history">
+                <button type="button"
+                        class="history-step history-step-previous"
+                        disabled="@(_isChangingRevision || _selectedRevision == 0)"
+                        aria-label="Previous revision"
+                        @onclick="PreviousRevisionAsync">
+                    <img src="/assets/ui/editor/navigation/navigation-arrow.png" alt="" />
+                </button>
+
+                <div class="history-revision-control">
+                    <GeometryDashText Text="@RevisionLabel" Height="21" />
+                    <input type="range"
+                           min="0"
+                           max="@_event.Revision"
+                           step="1"
+                           value="@_selectedRevision"
+                           disabled="@_isChangingRevision"
+                           aria-label="Displayed revision"
+                           aria-valuetext="@RevisionLabel"
+                           @onchange="HandleRevisionChangedAsync" />
+                </div>
+
+                <button type="button"
+                        class="history-step history-step-next"
+                        disabled="@(_isChangingRevision || _selectedRevision == _event.Revision)"
+                        aria-label="Next revision"
+                        @onclick="NextRevisionAsync">
+                    <img src="/assets/ui/editor/navigation/navigation-arrow.png" alt="" />
+                </button>
+            </section>
+
+            @if (_error is not null)
+            {
+                <div class="history-error" role="alert">@_error</div>
+            }
+        </main>
+    </CascadingValue>
+}
+
+@code {
+    private readonly EditorSession Editor = new(EditorObjectCatalog.All);
+    private LevelEvent? _event;
+    private long _selectedRevision;
+    private bool _isCurrentEvent;
+    private bool _isInitialLoading = true;
+    private bool _isChangingRevision;
+    private string? _error;
+
+    [Parameter]
+    public string Slug { get; set; } = string.Empty;
+
+    private string RevisionLabel => _event is null
+        ? "REVISION"
+        : $"REVISION {_selectedRevision} / {_event.Revision}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isInitialLoading = true;
+        _error = null;
+        try
+        {
+            _event = await EventRepository.GetBySlugAsync(Slug);
+            if (_event is null)
+            {
+                return;
+            }
+
+            if (_event.Width != EditorSession.ColumnCount ||
+                _event.Height != EditorSession.RowCount)
+            {
+                _error = "This event uses dimensions that are not supported by the viewer.";
+                return;
+            }
+
+            var current = await EventRepository.GetCurrentAsync();
+            _isCurrentEvent = current?.Id == _event.Id;
+            await LoadRevisionAsync(_event.Revision);
+        }
+        catch
+        {
+            _event = null;
+            _error = "The event history is temporarily unavailable.";
+        }
+        finally
+        {
+            _isInitialLoading = false;
+        }
+    }
+
+    private Task PreviousRevisionAsync() => LoadRevisionAsync(_selectedRevision - 1);
+
+    private Task NextRevisionAsync() => LoadRevisionAsync(_selectedRevision + 1);
+
+    private async Task HandleRevisionChangedAsync(ChangeEventArgs eventArgs)
+    {
+        if (long.TryParse(
+                eventArgs.Value?.ToString(),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var revision))
+        {
+            await LoadRevisionAsync(revision);
+        }
+    }
+
+    private async Task LoadRevisionAsync(long revision)
+    {
+        if (_event is null || _isChangingRevision)
+        {
+            return;
+        }
+
+        revision = Math.Clamp(revision, 0, _event.Revision);
+        _isChangingRevision = true;
+        _error = null;
+        try
+        {
+            var state = await LevelRepository.LoadRevisionAsync(_event.Id, revision);
+            Editor.LoadConfirmedObjects(state.Cells.Select(ToEditorObject));
+            _selectedRevision = state.Revision;
+        }
+        catch (LevelPersistenceException exception)
+        {
+            _error = exception.Message;
+        }
+        catch
+        {
+            _error = "Unable to load this revision.";
+        }
+        finally
+        {
+            _isChangingRevision = false;
+        }
+    }
+
+    private static EditorObjectInstance ToEditorObject(LevelCell cell) => new()
+    {
+        Type = cell.Type,
+        X = cell.X,
+        Y = cell.Y,
+        Rotation = cell.Rotation,
+        ScaleX = cell.ScaleX,
+        ScaleY = cell.ScaleY,
+        Red = cell.Red ?? 255,
+        Green = cell.Green ?? 255,
+        Blue = cell.Blue ?? 255,
+        Duration = cell.Duration ?? 0.2
+    };
+}
