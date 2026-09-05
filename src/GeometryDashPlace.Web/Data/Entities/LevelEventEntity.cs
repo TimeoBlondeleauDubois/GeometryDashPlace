@@ -13,6 +13,7 @@ public sealed class LevelEventEntity
     public long CurrentRevision { get; set; }
     public DateTimeOffset? StartsAt { get; set; }
     public DateTimeOffset? EndsAt { get; set; }
+    public DateTimeOffset? LastSnapshotAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
     public ICollection<UserEventStateEntity> UserStates { get; set; } = [];

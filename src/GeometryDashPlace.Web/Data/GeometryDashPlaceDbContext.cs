@@ -70,6 +70,7 @@ public sealed class GeometryDashPlaceDbContext(
                 .IsConcurrencyToken();
             entity.Property(levelEvent => levelEvent.StartsAt).HasColumnName("starts_at");
             entity.Property(levelEvent => levelEvent.EndsAt).HasColumnName("ends_at");
+            entity.Property(levelEvent => levelEvent.LastSnapshotAt).HasColumnName("last_snapshot_at");
             entity.Property(levelEvent => levelEvent.CreatedAt).HasColumnName("created_at");
             entity.Property(levelEvent => levelEvent.UpdatedAt).HasColumnName("updated_at");
             entity.HasIndex(levelEvent => levelEvent.Slug).IsUnique();
