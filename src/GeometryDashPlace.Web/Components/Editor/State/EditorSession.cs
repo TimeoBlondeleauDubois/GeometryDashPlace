@@ -25,6 +25,7 @@ public sealed class EditorSession
     private readonly IReadOnlyList<EditorObjectDefinition> _definitions;
     private readonly IReadOnlyDictionary<string, EditorObjectDefinition> _definitionByType;
     private readonly Dictionary<string, EditorObjectInstance> _objects = [];
+    private readonly Dictionary<Guid, EditorObjectInstance> _remotePreviews = [];
     private long? _pointerId;
     private double _pointerX;
     private double _pointerY;
@@ -406,6 +407,28 @@ public sealed class EditorSession
         NotifyChanged();
     }
 
+    public void ApplyRemotePreview(Guid userId, EditorObjectInstance? preview)
+    {
+        if (preview is null)
+        {
+            if (_remotePreviews.Remove(userId))
+            {
+                NotifyChanged();
+            }
+            return;
+        }
+
+        if (preview.X < 0 || preview.X >= ColumnCount ||
+            preview.Y < 0 || preview.Y >= RowCount ||
+            !_definitionByType.ContainsKey(CatalogTypeFor(preview.Type)))
+        {
+            return;
+        }
+
+        _remotePreviews[userId] = preview.Clone();
+        NotifyChanged();
+    }
+
     public void DeleteSelectedObject()
     {
         if (EditingObjectKey is null || !_objects.Remove(EditingObjectKey))
@@ -594,6 +617,9 @@ public sealed class EditorSession
             .Where(pair => pair.Key != EditingObjectKey)
             .Select(pair => CreateRenderObject(pair.Value, 1))
             .ToList();
+
+        renderObjects.AddRange(_remotePreviews.Values.Select(
+            preview => CreateRenderObject(preview, 0.3)));
 
         if (PendingObject is not null)
         {

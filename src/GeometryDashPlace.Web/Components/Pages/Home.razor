@@ -94,6 +94,35 @@ else
                     {
                         <div class="editor-persistence-message" role="status">@StatusMessage</div>
                     }
+
+                    @if (_pendingRecentPlacement is not null)
+                    {
+                        <div class="recent-overwrite-backdrop">
+                            <section class="recent-overwrite-dialog"
+                                     role="alertdialog"
+                                     aria-modal="true"
+                                     aria-labelledby="recent-overwrite-title">
+                                <span id="recent-overwrite-title">
+                                    <GeometryDashText Text="RECENT CHANGE" Height="25" Gold="true" />
+                                </span>
+                                <p>Another player placed an object on this cell less than 2 seconds ago.</p>
+                                <p>Do you really want to replace it?</p>
+                                <div class="recent-overwrite-actions">
+                                    <button type="button"
+                                            class="recent-overwrite-cancel"
+                                            @onclick="CancelRecentOverwrite">
+                                        <GeometryDashText Text="CANCEL" Height="15" />
+                                    </button>
+                                    <button type="button"
+                                            class="recent-overwrite-confirm"
+                                            disabled="@IsSaving"
+                                            @onclick="ConfirmRecentOverwriteAsync">
+                                        <GeometryDashText Text="PLACE ANYWAY" Height="15" />
+                                    </button>
+                                </div>
+                            </section>
+                        </div>
+                    }
                 </main>
             </CascadingValue>
         </CascadingValue>

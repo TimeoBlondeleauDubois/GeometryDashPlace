@@ -34,7 +34,8 @@ public sealed record PlaceLevelCellRequest(
     int? Red = null,
     int? Green = null,
     int? Blue = null,
-    double? Duration = null);
+    double? Duration = null,
+    bool ConfirmRecentOverwrite = false);
 
 public sealed record DeleteLevelCellRequest(Guid RequestId);
 
@@ -49,10 +50,12 @@ public sealed record MoveLevelCellRequest(
     int? Red = null,
     int? Green = null,
     int? Blue = null,
-    double? Duration = null)
+    double? Duration = null,
+    bool ConfirmRecentOverwrite = false)
 {
     public PlaceLevelCellRequest ToPlacement() => new(
-        RequestId, Type, Rotation, ScaleX, ScaleY, Red, Green, Blue, Duration);
+        RequestId, Type, Rotation, ScaleX, ScaleY, Red, Green, Blue, Duration,
+        ConfirmRecentOverwrite);
 }
 
 public sealed record LevelMutation(

@@ -50,7 +50,10 @@ public partial class Home : ComponentBase, IDisposable
     private Guid? _userId;
     private readonly CancellationTokenSource _lifetime = new();
     private IDisposable? _levelSubscription;
+    private IDisposable? _previewSubscription;
     private IDisposable? _eventLifecycleSubscription;
+    private PlacementPreview? _lastPublishedPreview;
+    private PendingRecentPlacement? _pendingRecentPlacement;
     private long _levelRevision;
 
     public Home()
@@ -91,6 +94,8 @@ public partial class Home : ComponentBase, IDisposable
 
             _levelSubscription = Realtime.Subscribe(
                 CurrentEvent.Id, HandleLevelChangedAsync);
+            _previewSubscription = Realtime.SubscribeToPreviews(
+                CurrentEvent.Id, HandlePlacementPreviewAsync);
             _eventLifecycleSubscription = EventLifecycle.Subscribe(
                 HandleEventLifecycleChangedAsync);
             await ReloadLevelSafelyAsync();
@@ -116,7 +121,13 @@ public partial class Home : ComponentBase, IDisposable
     public void Dispose()
     {
         _lifetime.Cancel();
+        if (_lastPublishedPreview?.IsActive is true)
+        {
+            _ = Realtime.PublishPreviewAsync(
+                _lastPublishedPreview with { IsActive = false, Type = null });
+        }
         _levelSubscription?.Dispose();
+        _previewSubscription?.Dispose();
         _eventLifecycleSubscription?.Dispose();
         Editor.Changed -= HandleEditorChanged;
     }
@@ -124,6 +135,7 @@ public partial class Home : ComponentBase, IDisposable
     private void HandleEditorChanged()
     {
         _ = InvokeAsync(StateHasChanged);
+        _ = PublishPlacementPreviewIfChangedAsync();
     }
 
     protected void ToggleAccountMenu() => IsAccountMenuOpen = !IsAccountMenuOpen;
@@ -138,49 +150,122 @@ public partial class Home : ComponentBase, IDisposable
             return;
         }
 
+        EditorCell? sourceCell = null;
+        if (Editor.TryGetEditingCell(out var source) &&
+            (source.X != placement.X || source.Y != placement.Y))
+        {
+            sourceCell = source;
+        }
+
+        await PersistPlacementAsync(
+            placement, sourceCell, Guid.NewGuid(), confirmRecentOverwrite: false);
+    }
+
+    private async Task PersistPlacementAsync(
+        EditorObjectInstance placement,
+        EditorCell? sourceCell,
+        Guid requestId,
+        bool confirmRecentOverwrite)
+    {
         await ExecuteMutationAsync(async () =>
         {
-            var requestId = Guid.NewGuid();
-            var colorTrigger = placement.Type is "bg_color_trigger" or "g1_color_trigger";
-            LevelMutation result;
-            EditorCell? sourceCell = null;
-            if (Editor.TryGetEditingCell(out var source) &&
-                (source.X != placement.X || source.Y != placement.Y))
+            LevelMutation? result = null;
+            for (var attempt = 0; attempt < 2; attempt++)
             {
-                sourceCell = source;
-                result = await LevelRepository.MoveAsync(
-                    CurrentEvent!.Id,
-                    _userId!.Value,
-                    source.X,
-                    source.Y,
-                    new MoveLevelCellRequest(
-                        requestId, placement.X, placement.Y, placement.Type,
-                        placement.Rotation, placement.ScaleX, placement.ScaleY,
-                        colorTrigger ? placement.Red : null,
-                        colorTrigger ? placement.Green : null,
-                        colorTrigger ? placement.Blue : null,
-                        colorTrigger ? placement.Duration : null));
-            }
-            else
-            {
-                result = await LevelRepository.PlaceAsync(
-                    CurrentEvent!.Id,
-                    _userId!.Value,
-                    placement.X,
-                    placement.Y,
-                    new PlaceLevelCellRequest(
-                        requestId, placement.Type, placement.Rotation,
-                        placement.ScaleX, placement.ScaleY,
-                        colorTrigger ? placement.Red : null,
-                        colorTrigger ? placement.Green : null,
-                        colorTrigger ? placement.Blue : null,
-                        colorTrigger ? placement.Duration : null));
+                try
+                {
+                    result = await SendPlacementMutationAsync(
+                        placement,
+                        sourceCell,
+                        requestId,
+                        confirmRecentOverwrite);
+                    break;
+                }
+                catch (LevelPersistenceException exception) when (
+                    exception.Code == "concurrent_update" && attempt == 0)
+                {
+                    await ReloadLevelSafelyAsync(preserveDraft: true);
+                }
+                catch (LevelPersistenceException exception) when (
+                    exception.Code == "recent_cell_conflict" && !confirmRecentOverwrite)
+                {
+                    _pendingRecentPlacement = new PendingRecentPlacement(
+                        placement.Clone(), sourceCell, requestId);
+                    await ReloadLevelSafelyAsync(preserveDraft: true);
+                    return;
+                }
             }
 
+            if (result is null)
+            {
+                throw new InvalidOperationException(
+                    "The placement did not produce a result.");
+            }
+            _pendingRecentPlacement = null;
             Editor.ConfirmPlacement();
             await AcceptMutationAsync(
                 result, new EditorCell(placement.X, placement.Y), sourceCell);
         });
+    }
+
+    private Task<LevelMutation> SendPlacementMutationAsync(
+        EditorObjectInstance placement,
+        EditorCell? sourceCell,
+        Guid requestId,
+        bool confirmRecentOverwrite)
+    {
+        var colorTrigger = placement.Type is "bg_color_trigger" or "g1_color_trigger";
+        if (sourceCell is { } source)
+        {
+            return LevelRepository.MoveAsync(
+                CurrentEvent!.Id,
+                _userId!.Value,
+                source.X,
+                source.Y,
+                new MoveLevelCellRequest(
+                    requestId, placement.X, placement.Y, placement.Type,
+                    placement.Rotation, placement.ScaleX, placement.ScaleY,
+                    colorTrigger ? placement.Red : null,
+                    colorTrigger ? placement.Green : null,
+                    colorTrigger ? placement.Blue : null,
+                    colorTrigger ? placement.Duration : null,
+                    ConfirmRecentOverwrite: confirmRecentOverwrite));
+        }
+
+        return LevelRepository.PlaceAsync(
+            CurrentEvent!.Id,
+            _userId!.Value,
+            placement.X,
+            placement.Y,
+            new PlaceLevelCellRequest(
+                requestId, placement.Type, placement.Rotation,
+                placement.ScaleX, placement.ScaleY,
+                colorTrigger ? placement.Red : null,
+                colorTrigger ? placement.Green : null,
+                colorTrigger ? placement.Blue : null,
+                colorTrigger ? placement.Duration : null,
+                ConfirmRecentOverwrite: confirmRecentOverwrite));
+    }
+
+    private async Task ConfirmRecentOverwriteAsync()
+    {
+        var pending = _pendingRecentPlacement;
+        if (pending is null)
+        {
+            return;
+        }
+
+        _pendingRecentPlacement = null;
+        await PersistPlacementAsync(
+            pending.Placement,
+            pending.Source,
+            pending.RequestId,
+            confirmRecentOverwrite: true);
+    }
+
+    private void CancelRecentOverwrite()
+    {
+        _pendingRecentPlacement = null;
     }
 
     private async Task DeleteSelectedObjectAsync()
@@ -261,6 +346,66 @@ public partial class Home : ComponentBase, IDisposable
         _levelRevision = change.Revision;
         StateHasChanged();
     });
+
+    private Task HandlePlacementPreviewAsync(PlacementPreview preview) => InvokeAsync(() =>
+    {
+        if (CurrentEvent is null ||
+            preview.EventId != CurrentEvent.Id ||
+            preview.ActorUserId == _userId)
+        {
+            return;
+        }
+
+        Editor.ApplyRemotePreview(
+            preview.ActorUserId,
+            preview.IsActive && preview.Type is not null
+                ? ToEditorObject(preview)
+                : null);
+    });
+
+    private async Task PublishPlacementPreviewIfChangedAsync()
+    {
+        if (_lifetime.IsCancellationRequested ||
+            !IsAuthenticated ||
+            _userId is not { } userId ||
+            CurrentEvent is null)
+        {
+            return;
+        }
+
+        var pending = Editor.PendingObject;
+        var preview = pending is null
+            ? new PlacementPreview(CurrentEvent.Id, userId, IsActive: false)
+            : new PlacementPreview(
+                CurrentEvent.Id,
+                userId,
+                IsActive: true,
+                pending.Type,
+                pending.X,
+                pending.Y,
+                pending.Rotation,
+                pending.ScaleX,
+                pending.ScaleY,
+                pending.Red,
+                pending.Green,
+                pending.Blue,
+                pending.Duration);
+        if (preview == _lastPublishedPreview ||
+            !preview.IsActive && _lastPublishedPreview is null)
+        {
+            return;
+        }
+
+        _lastPublishedPreview = preview;
+        try
+        {
+            await Realtime.PublishPreviewAsync(preview);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogDebug(exception, "Unable to publish the placement preview.");
+        }
+    }
 
     private Task HandleEventLifecycleChangedAsync() => InvokeAsync(async () =>
     {
@@ -375,10 +520,29 @@ public partial class Home : ComponentBase, IDisposable
         Duration = cell.Duration ?? 0.2
     };
 
+    private static EditorObjectInstance ToEditorObject(PlacementPreview preview) => new()
+    {
+        Type = preview.Type!,
+        X = preview.X,
+        Y = preview.Y,
+        Rotation = preview.Rotation,
+        ScaleX = preview.ScaleX,
+        ScaleY = preview.ScaleY,
+        Red = preview.Red,
+        Green = preview.Green,
+        Blue = preview.Blue,
+        Duration = preview.Duration
+    };
+
     private bool CanPersist() =>
         IsAuthenticated &&
         _userId is not null &&
         CurrentEvent is not null &&
         !IsSaving &&
         Cooldown.IsReady;
+
+    private sealed record PendingRecentPlacement(
+        EditorObjectInstance Placement,
+        EditorCell? Source,
+        Guid RequestId);
 }
