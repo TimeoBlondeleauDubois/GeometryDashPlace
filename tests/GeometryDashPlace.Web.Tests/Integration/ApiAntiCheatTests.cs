@@ -162,6 +162,43 @@ public sealed class ApiAntiCheatTests(PostgreSqlIntegrationFixture database)
     }
 
     [PostgreSqlFact]
+    public async Task RecentPlacementByAnotherUser_RequiresExplicitConfirmation()
+    {
+        var scenario = await database.CreateScenarioAsync(userCount: 2);
+        using var firstClient = database.Application.CreateClient(scenario.UserIds[0]);
+        using var secondClient = database.Application.CreateClient(scenario.UserIds[1]);
+        var url = CellUrl(scenario.EventId, 3, 2);
+
+        var first = await firstClient.PutAsJsonAsync(
+            url,
+            new PlaceLevelCellRequest(Guid.NewGuid(), "block"));
+        var requestId = Guid.NewGuid();
+        var rejected = await secondClient.PutAsJsonAsync(
+            url,
+            new PlaceLevelCellRequest(requestId, "spike"));
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        await AssertProblemAsync(
+            rejected, HttpStatusCode.Conflict, "recent_cell_conflict");
+
+        var confirmed = await secondClient.PutAsJsonAsync(
+            url,
+            new PlaceLevelCellRequest(
+                requestId,
+                "spike",
+                ConfirmRecentOverwrite: true));
+        Assert.Equal(HttpStatusCode.OK, confirmed.StatusCode);
+
+        await using var context = database.CreateDbContext();
+        var cell = await context.LevelCells.SingleAsync(
+            candidate => candidate.EventId == scenario.EventId &&
+                         candidate.X == 3 && candidate.Y == 2);
+        Assert.Equal(scenario.UserIds[1], cell.AuthorUserId);
+        Assert.Equal(2, await context.PlacementHistory.CountAsync(
+            history => history.EventId == scenario.EventId));
+    }
+
+    [PostgreSqlFact]
     public async Task ReusedRequestId_ForDifferentMutationIsRejected()
     {
         var scenario = await database.CreateScenarioAsync();

@@ -11,6 +11,7 @@ public sealed class EntityFrameworkLevelRepository(
     ILogger<EntityFrameworkLevelRepository> logger) : ILevelRepository
 {
     private static readonly TimeSpan HourlySnapshotInterval = TimeSpan.FromHours(1);
+    private static readonly TimeSpan RecentOverwriteWindow = TimeSpan.FromSeconds(2);
     private const double MinimumScale = 0.5;
     private const double MaximumScale = 2;
 
@@ -150,6 +151,8 @@ public sealed class EntityFrameworkLevelRepository(
                 .SingleOrDefaultAsync(
                     cell => cell.EventId == eventId && cell.X == x && cell.Y == y,
                     cancellationToken);
+            ValidateRecentOverwrite(
+                entity, userId, now, request.ConfirmRecentOverwrite);
             var previous = entity is null
                 ? null
                 : ToLevelCell(entity, entity.Author.DisplayName);
@@ -298,6 +301,8 @@ public sealed class EntityFrameworkLevelRepository(
                     cell => cell.EventId == eventId &&
                             cell.X == request.TargetX && cell.Y == request.TargetY,
                     cancellationToken);
+            ValidateRecentOverwrite(
+                replaced, userId, now, request.ConfirmRecentOverwrite);
             var previous = ToLevelCell(source, source.Author.DisplayName);
             var replacedCell = replaced is null
                 ? null
@@ -827,6 +832,24 @@ public sealed class EntityFrameworkLevelRepository(
             throw Error(
                 "cell_out_of_bounds", "The cell is outside the event grid.",
                 StatusCodes.Status400BadRequest);
+        }
+    }
+
+    private static void ValidateRecentOverwrite(
+        LevelCellEntity? existingCell,
+        Guid userId,
+        DateTimeOffset now,
+        bool isConfirmed)
+    {
+        if (!isConfirmed &&
+            existingCell is not null &&
+            existingCell.AuthorUserId != userId &&
+            existingCell.PlacedAt >= now - RecentOverwriteWindow)
+        {
+            throw Error(
+                "recent_cell_conflict",
+                "Another player changed this cell less than two seconds ago.",
+                StatusCodes.Status409Conflict);
         }
     }
 
