@@ -6,6 +6,7 @@ namespace GeometryDashPlace.Web.Realtime;
 public interface ILevelClient
 {
     Task LevelChanged(LevelChange change);
+    Task PlacementPreviewChanged(PlacementPreview preview);
 }
 
 [Authorize]

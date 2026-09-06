@@ -166,6 +166,26 @@ public sealed class EditorSessionTests
     }
 
     [Fact]
+    public void RemotePreview_IsRenderedAsAGhostAndCanBeRemoved()
+    {
+        var editor = CreateEditor();
+        var remoteUserId = Guid.NewGuid();
+
+        editor.ApplyRemotePreview(remoteUserId, Placed("spike", 7, 3));
+
+        var ghost = Assert.Single(editor.CreateRenderSnapshot().Objects);
+        Assert.Equal("spike", ghost.CatalogType);
+        Assert.Equal(7, ghost.X);
+        Assert.Equal(3, ghost.Y);
+        Assert.Equal(0.3, ghost.Opacity);
+        Assert.Equal(0, editor.ObjectCount);
+
+        editor.ApplyRemotePreview(remoteUserId, null);
+
+        Assert.Empty(editor.CreateRenderSnapshot().Objects);
+    }
+
+    [Fact]
     public void ReadOnlyPointerClick_DoesNotSelectOrCreateAnObject()
     {
         var editor = CreateEditor();

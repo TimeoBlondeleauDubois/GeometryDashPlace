@@ -9,6 +9,8 @@ public sealed class LevelRealtimeService(
 {
     private readonly ConcurrentDictionary<Guid,
         ConcurrentDictionary<Guid, Func<LevelChange, Task>>> _subscribers = [];
+    private readonly ConcurrentDictionary<Guid,
+        ConcurrentDictionary<Guid, Func<PlacementPreview, Task>>> _previewSubscribers = [];
 
     public IDisposable Subscribe(Guid eventId, Func<LevelChange, Task> handler)
     {
@@ -21,6 +23,51 @@ public sealed class LevelRealtimeService(
     {
         await PublishToHubAsync(change);
         await PublishToSubscribersAsync(change);
+    }
+
+    public IDisposable SubscribeToPreviews(
+        Guid eventId,
+        Func<PlacementPreview, Task> handler)
+    {
+        var id = Guid.NewGuid();
+        _previewSubscribers.GetOrAdd(eventId, _ => [])[id] = handler;
+        return new Subscription(() => UnsubscribePreview(eventId, id));
+    }
+
+    public async Task PublishPreviewAsync(PlacementPreview preview)
+    {
+        try
+        {
+            await hubContext.Clients.Group(LevelHub.GroupName(preview.EventId))
+                .PlacementPreviewChanged(preview);
+        }
+        catch (Exception exception)
+        {
+            logger.LogWarning(
+                exception,
+                "SignalR failed for a placement preview in event {EventId}.",
+                preview.EventId);
+        }
+
+        if (!_previewSubscribers.TryGetValue(preview.EventId, out var subscribers))
+        {
+            return;
+        }
+
+        foreach (var handler in subscribers.Values)
+        {
+            try
+            {
+                await handler(preview);
+            }
+            catch (Exception exception)
+            {
+                logger.LogWarning(
+                    exception,
+                    "A placement preview subscriber failed for event {EventId}.",
+                    preview.EventId);
+            }
+        }
     }
 
     private async Task PublishToHubAsync(LevelChange change)
@@ -68,6 +115,18 @@ public sealed class LevelRealtimeService(
             if (subscribers.IsEmpty)
             {
                 _subscribers.TryRemove(eventId, out _);
+            }
+        }
+    }
+
+    private void UnsubscribePreview(Guid eventId, Guid id)
+    {
+        if (_previewSubscribers.TryGetValue(eventId, out var subscribers))
+        {
+            subscribers.TryRemove(id, out _);
+            if (subscribers.IsEmpty)
+            {
+                _previewSubscribers.TryRemove(eventId, out _);
             }
         }
     }
