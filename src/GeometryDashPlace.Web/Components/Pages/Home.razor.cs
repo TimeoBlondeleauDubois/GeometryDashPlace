@@ -26,6 +26,9 @@ public partial class Home : ComponentBase, IDisposable
     [Inject]
     private ILogger<Home> Logger { get; set; } = default!;
 
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
+
     protected EditorSession Editor { get; } = new(EditorObjectCatalog.All);
     protected EditorCooldownState Cooldown { get; } = new();
     protected EditorPersistenceActions Actions { get; }
@@ -63,6 +66,7 @@ public partial class Home : ComponentBase, IDisposable
             CurrentEvent = await EventRepository.GetCurrentAsync();
             if (CurrentEvent is null)
             {
+                Navigation.NavigateTo("/events", replace: true);
                 return;
             }
 

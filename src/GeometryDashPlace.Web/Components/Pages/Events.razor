@@ -1,0 +1,94 @@
+@page "/events"
+@rendermode InteractiveServer
+@using System.Globalization
+@using GeometryDashPlace.Web.Events
+@inject ILevelEventRepository EventRepository
+
+<PageTitle>Events - Geometry Dash Place</PageTitle>
+
+<main class="events-page">
+    <header class="events-header">
+        <GeometryDashText Text="EVENTS" Height="42" Gold="true" />
+        @if (_currentEvent is not null)
+        {
+            <a class="events-live-button" href="/">
+                <GeometryDashText Text="RETURN TO LIVE" Height="17" />
+            </a>
+        }
+    </header>
+
+    @if (_isLoading)
+    {
+        <section class="events-state">
+            <GeometryDashText Text="LOADING" Height="28" />
+        </section>
+    }
+    else if (_error is not null)
+    {
+        <section class="events-state">
+            <GeometryDashText Text="UNABLE TO LOAD EVENTS" Height="25" />
+            <p>@_error</p>
+        </section>
+    }
+    else if (_pastEvents.Count == 0)
+    {
+        <section class="events-state">
+            <GeometryDashText Text="NO PAST EVENTS" Height="28" />
+            <p>Completed events will appear here.</p>
+        </section>
+    }
+    else
+    {
+        <section class="events-grid" aria-label="Past events">
+            @foreach (var levelEvent in _pastEvents)
+            {
+                <a class="event-card" href="@($"/events/{levelEvent.Slug}")">
+                    <span class="event-card-title">
+                        <GeometryDashText Text="@levelEvent.Name" Height="23" />
+                    </span>
+                    @if (!string.IsNullOrWhiteSpace(levelEvent.Description))
+                    {
+                        <span class="event-card-description">@levelEvent.Description</span>
+                    }
+                    <span class="event-card-details">
+                        <span>@levelEvent.Revision revisions</span>
+                        <span>@levelEvent.Width x @levelEvent.Height</span>
+                        @if (levelEvent.EndsAt is { } endsAt)
+                        {
+                            <time datetime="@endsAt.ToString("O")">
+                                @endsAt.LocalDateTime.ToString("dd MMM yyyy", CultureInfo.InvariantCulture)
+                            </time>
+                        }
+                    </span>
+                    <span class="event-card-action">
+                        <GeometryDashText Text="VIEW HISTORY" Height="16" />
+                    </span>
+                </a>
+            }
+        </section>
+    }
+</main>
+
+@code {
+    private IReadOnlyList<LevelEvent> _pastEvents = [];
+    private LevelEvent? _currentEvent;
+    private bool _isLoading = true;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _currentEvent = await EventRepository.GetCurrentAsync();
+            _pastEvents = await EventRepository.GetPastAsync();
+        }
+        catch
+        {
+            _error = "The event archive is temporarily unavailable.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

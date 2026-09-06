@@ -38,6 +38,9 @@ else
                         <span class="account-event-name">
                             <GeometryDashText Text="@CurrentEvent.Name" Height="15" />
                         </span>
+                        <a class="account-action account-archive-action" href="/events">
+                            <GeometryDashText Text="EVENTS" Height="14" />
+                        </a>
                         @if (IsAuthenticated)
                         {
                             <span class="account-user-name" title="@UserDisplayName">@UserDisplayName</span>
