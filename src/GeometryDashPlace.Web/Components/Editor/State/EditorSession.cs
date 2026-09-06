@@ -531,7 +531,11 @@ public sealed class EditorSession
         NotifyChanged();
     }
 
-    public void EndPointer(long pointerId, double x, double y)
+    public void EndPointer(
+        long pointerId,
+        double x,
+        double y,
+        bool allowCellClick = true)
     {
         if (_pointerId != pointerId)
         {
@@ -547,7 +551,7 @@ public sealed class EditorSession
             return;
         }
 
-        if (_dragDistance < 5 && ScreenToCell(x, y) is { } cell)
+        if (allowCellClick && _dragDistance < 5 && ScreenToCell(x, y) is { } cell)
         {
             HandleCellClick(cell);
         }

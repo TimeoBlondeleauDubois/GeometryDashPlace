@@ -31,6 +31,9 @@
     [CascadingParameter]
     public required EditorSession Editor { get; set; }
 
+    [Parameter]
+    public bool ReadOnly { get; set; }
+
     protected override void OnInitialized()
     {
         Editor.Changed += HandleEditorChanged;
@@ -113,7 +116,8 @@
 
     private void HandlePointerUp(PointerEventArgs eventArgs) =>
         Editor.EndPointer(eventArgs.PointerId,
-            ToCanvasX(eventArgs.ClientX), ToCanvasY(eventArgs.ClientY));
+            ToCanvasX(eventArgs.ClientX), ToCanvasY(eventArgs.ClientY),
+            allowCellClick: !ReadOnly);
 
     private void HandlePointerLeave() => Editor.LeavePointer();
 

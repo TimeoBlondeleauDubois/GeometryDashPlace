@@ -165,6 +165,21 @@ public sealed class EditorSessionTests
         Assert.Equal(2, editor.CreateRenderSnapshot().Objects.Count);
     }
 
+    [Fact]
+    public void ReadOnlyPointerClick_DoesNotSelectOrCreateAnObject()
+    {
+        var editor = CreateEditor();
+        editor.LoadConfirmedObjects([Placed("block", 2, 3)]);
+        editor.SelectCatalogObject("spike");
+
+        ClickCell(editor, 2, 3, allowCellClick: false);
+
+        Assert.Null(editor.PendingObject);
+        Assert.False(editor.TryGetEditingCell(out _));
+        var rendered = Assert.Single(editor.CreateRenderSnapshot().Objects);
+        Assert.Equal("block", rendered.CatalogType);
+    }
+
     private static EditorSession CreateEditor()
     {
         var editor = new EditorSession(EditorObjectCatalog.All);
@@ -184,11 +199,15 @@ public sealed class EditorSessionTests
             Rotation = rotation
         };
 
-    private static void ClickCell(EditorSession editor, int x, int y)
+    private static void ClickCell(
+        EditorSession editor,
+        int x,
+        int y,
+        bool allowCellClick = true)
     {
         var screenX = (x + 0.5 - editor.OffsetX) * editor.CellSize;
         var screenY = editor.GroundBaseline - (y + 0.5 - editor.OffsetY) * editor.CellSize;
         Assert.True(editor.BeginPointer(1, 0, screenX, screenY));
-        editor.EndPointer(1, screenX, screenY);
+        editor.EndPointer(1, screenX, screenY, allowCellClick);
     }
 }
