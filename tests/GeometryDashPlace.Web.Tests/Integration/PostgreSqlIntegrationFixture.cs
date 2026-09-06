@@ -87,7 +87,8 @@ public sealed class PostgreSqlIntegrationFixture : IAsyncLifetime
         int cooldownSeconds = 0,
         bool isBanned = false,
         int userCount = 1,
-        string eventStatus = "open")
+        string eventStatus = "open",
+        bool isAdmin = false)
     {
         var now = DateTimeOffset.UtcNow;
         var suffix = Guid.NewGuid().ToString("N");
@@ -99,6 +100,7 @@ public sealed class PostgreSqlIntegrationFixture : IAsyncLifetime
                 Email = $"integration-{suffix}-{index}@example.test",
                 DisplayName = $"Integration user {index + 1}",
                 IsEmailVerified = true,
+                IsAdmin = isAdmin,
                 IsBanned = isBanned,
                 CreatedAt = now,
                 LastLoginAt = now

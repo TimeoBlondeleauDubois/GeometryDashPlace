@@ -37,6 +37,17 @@
     transition: filter 90ms ease, transform 90ms ease;
 }
 
+.events-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.events-admin-button {
+    background: linear-gradient(180deg, #ffb52f, #dc7416);
+    box-shadow: 0 4px 0 #793708;
+}
+
 .events-live-button:hover,
 .event-card:hover .event-card-action {
     filter: brightness(1.12);
@@ -128,6 +139,11 @@
 @media (max-width: 640px) {
     .events-header {
         flex-direction: column;
+    }
+
+    .events-header-actions {
+        flex-wrap: wrap;
+        justify-content: center;
     }
 
     .events-page {

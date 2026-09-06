@@ -1,4 +1,5 @@
 using DotNetEnv;
+using GeometryDashPlace.Web.Administration;
 using GeometryDashPlace.Web.Auth;
 using GeometryDashPlace.Web.Components;
 using GeometryDashPlace.Web.Data;
@@ -22,6 +23,9 @@ var dbUser = builder.Configuration["DB_USERNAME"] ?? "geometrydashplace";
 var dbPassword = builder.Configuration["DB_PASSWORD"] ?? "password";
 var dbName = builder.Configuration["DB_NAME"] ?? "geometry_dash_place";
 
+builder.Services.AddSingleton(new SiteOwnership(
+    builder.Configuration["SITE_OWNER_EMAILS"]));
+
 var connectionString = builder.Environment.IsDevelopment()
     ? $"Host=localhost;Port={dbPort};Username={dbUser};Password={dbPassword};Database={dbName};Include Error Detail=true"
     : $"Host={dbHost};Port={dbPort};Username={dbUser};Password={dbPassword};Database={dbName}";
@@ -34,7 +38,14 @@ builder.Services.AddDbContextFactory<GeometryDashPlaceDbContext>(
     options => options.UseNpgsql(connectionString));
 builder.Services.AddScoped<ILevelRepository, EntityFrameworkLevelRepository>();
 builder.Services.AddScoped<ILevelEventRepository, EntityFrameworkLevelEventRepository>();
+builder.Services.AddScoped<EntityFrameworkAdministrationService>();
+builder.Services.AddScoped<IAdministrationService>(services =>
+    services.GetRequiredService<EntityFrameworkAdministrationService>());
+builder.Services.AddScoped<IEventLifecycleService>(services =>
+    services.GetRequiredService<EntityFrameworkAdministrationService>());
+builder.Services.AddHostedService<EventLifecycleWorker>();
 builder.Services.AddSingleton<LevelRealtimeService>();
+builder.Services.AddSingleton<EventLifecycleNotifier>();
 builder.Services.AddGoogleAuthentication(builder.Configuration, builder.Environment);
 
 var app = builder.Build();

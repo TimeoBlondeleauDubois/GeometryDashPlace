@@ -1,0 +1,451 @@
+@page "/admin"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = AdminPolicy.Name)]
+@using System.Globalization
+@using GeometryDashPlace.Web.Administration
+@using GeometryDashPlace.Web.Auth
+@using GeometryDashPlace.Web.Events
+@using Microsoft.AspNetCore.Authorization
+@inject IAdministrationService Administration
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Administration - Geometry Dash Place</PageTitle>
+
+<main class="admin-page">
+    <header class="admin-header">
+        <GeometryDashText Text="ADMINISTRATION" Height="38" Gold="true" />
+        <nav class="admin-navigation" aria-label="Administration navigation">
+            <a class="gd-button gd-button-blue" href="/events">
+                <GeometryDashText Text="EVENTS" Height="15" />
+            </a>
+            <a class="gd-button" href="/">
+                <GeometryDashText Text="LIVE" Height="15" />
+            </a>
+        </nav>
+    </header>
+
+    @if (_isLoading)
+    {
+        <section class="admin-state">
+            <GeometryDashText Text="LOADING" Height="28" />
+        </section>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(_message))
+        {
+            <div class="admin-message @(_hasError ? "admin-message-error" : null)" role="status">
+                @_message
+            </div>
+        }
+
+        <div class="admin-layout">
+            <section class="admin-panel event-list-panel">
+                <div class="panel-heading">
+                    <GeometryDashText Text="EVENTS" Height="24" />
+                    <button class="gd-button compact-button" type="button" @onclick="NewEvent">
+                        <GeometryDashText Text="NEW" Height="14" />
+                    </button>
+                </div>
+
+                <div class="admin-event-list">
+                    @foreach (var levelEvent in _events)
+                    {
+                        <button type="button"
+                                class="admin-event-item @(levelEvent.Id == _selectedEventId ? "selected" : null)"
+                                @onclick="() => SelectEvent(levelEvent)">
+                            <span class="admin-event-name">@levelEvent.Name</span>
+                            <span class="event-status @(IsCompleted(levelEvent) ? "event-status-closed" : "event-status-open")">
+                                @StatusLabel(levelEvent)
+                            </span>
+                            <span class="admin-event-date">@ScheduleLabel(levelEvent)</span>
+                        </button>
+                    }
+                </div>
+            </section>
+
+            <section class="admin-panel event-form-panel">
+                <div class="panel-heading">
+                    <GeometryDashText Text="@(_selectedEventId is null ? "CREATE EVENT" : "EDIT EVENT")" Height="24" />
+                    @if (_selectedEvent is not null)
+                    {
+                        <span class="event-status @(IsCompleted(_selectedEvent) ? "event-status-closed" : "event-status-open")">
+                            @(IsCompleted(_selectedEvent) ? "COMPLETED" : "ONGOING")
+                        </span>
+                    }
+                </div>
+
+                <form class="event-form" @onsubmit="SaveEventAsync" @onsubmit:preventDefault>
+                    <label>
+                        <span>NAME</span>
+                        <input maxlength="120" required @bind="_form.Name" />
+                    </label>
+                    <label>
+                        <span>SLUG</span>
+                        <input maxlength="80" required placeholder="community-event" @bind="_form.Slug" />
+                    </label>
+                    <label class="full-field">
+                        <span>DESCRIPTION</span>
+                        <textarea maxlength="2000" rows="3" @bind="_form.Description"></textarea>
+                    </label>
+                    <label>
+                        <span>START (UTC)</span>
+                        <input type="datetime-local"
+                               step="60"
+                               required
+                               disabled="@IsStartDateLocked"
+                               value="@_form.StartsAt"
+                               @onchange="UpdateStartsAt" />
+                    </label>
+                    <label>
+                        <span>END (UTC)</span>
+                        <input type="datetime-local"
+                               step="60"
+                               required
+                               disabled="@IsSelectedEventCompleted"
+                               value="@_form.EndsAt"
+                               @onchange="UpdateEndsAt" />
+                    </label>
+                    <label>
+                        <span>COOLDOWN (SECONDS)</span>
+                        <input type="number"
+                               min="0"
+                               max="86400"
+                               required
+                               disabled="@IsSelectedEventCompleted"
+                               @bind="_form.CooldownSeconds" />
+                    </label>
+
+                    <div class="event-form-actions full-field">
+                        <button class="gd-button" type="submit" disabled="@_isSaving">
+                            <GeometryDashText Text="@(_selectedEventId is null ? "CREATE" : "SAVE")" Height="16" />
+                        </button>
+                    </div>
+                </form>
+            </section>
+        </div>
+
+        <section class="admin-panel users-panel">
+            <div class="panel-heading">
+                <GeometryDashText Text="ADMINISTRATORS" Height="24" />
+            </div>
+            <div class="user-search">
+                <input type="search"
+                       placeholder="Search a Google account by name or email"
+                       aria-label="Search Google accounts"
+                       @bind="_userSearch"
+                       @bind:event="oninput"
+                       @bind:after="SearchUsersAsync" />
+            </div>
+            <div class="admin-user-list">
+                @foreach (var user in _users)
+                {
+                    <article class="admin-user-row">
+                        <div class="admin-user-identity">
+                            <strong>@user.DisplayName</strong>
+                            <span>@user.Email</span>
+                        </div>
+                        <div class="admin-user-state">
+                            @if (user.IsSiteOwner)
+                            {
+                                <span class="owner-badge">SITE OWNER</span>
+                            }
+                            else if (user.IsAdmin)
+                            {
+                                <span class="admin-badge">ADMIN</span>
+                            }
+                            @if (user.IsBanned)
+                            {
+                                <span class="banned-badge">BANNED</span>
+                            }
+                        </div>
+                        @if (!user.IsSiteOwner && user.Id != _actorUserId)
+                        {
+                            <button type="button"
+                                    class="gd-button compact-button @(user.IsAdmin ? "gd-button-danger" : null)"
+                                    disabled="@(_isSaving || user.IsBanned)"
+                                    @onclick="() => ToggleAdminAsync(user)">
+                                <GeometryDashText Text="@(user.IsAdmin ? "REMOVE ADMIN" : "MAKE ADMIN")" Height="12" />
+                            </button>
+                        }
+                    </article>
+                }
+            </div>
+        </section>
+    }
+</main>
+
+@code {
+    private IReadOnlyList<LevelEvent> _events = [];
+    private IReadOnlyList<AdminUser> _users = [];
+    private readonly EventForm _form = new();
+    private Guid _actorUserId;
+    private Guid? _selectedEventId;
+    private LevelEvent? _selectedEvent;
+    private string _userSearch = string.Empty;
+    private int _userSearchVersion;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private bool _hasError;
+    private string? _message;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _form.Reset();
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (!AuthenticatedUser.TryGetUserId(authenticationState.User, out _actorUserId))
+        {
+            _message = "Unable to identify the signed-in administrator.";
+            _hasError = true;
+            _isLoading = false;
+            return;
+        }
+
+        await ReloadAsync();
+        _isLoading = false;
+    }
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            _events = await Administration.GetEventsAsync(_actorUserId);
+            _users = await Administration.GetUsersAsync(_actorUserId, _userSearch);
+            if (_selectedEventId is { } eventId)
+            {
+                _selectedEvent = _events.SingleOrDefault(levelEvent => levelEvent.Id == eventId);
+            }
+        }
+        catch (AdministrationException exception)
+        {
+            ShowError(exception.Message);
+        }
+    }
+
+    private void NewEvent()
+    {
+        _selectedEventId = null;
+        _selectedEvent = null;
+        _form.Reset();
+        ClearMessage();
+    }
+
+    private void SelectEvent(LevelEvent levelEvent)
+    {
+        _selectedEventId = levelEvent.Id;
+        _selectedEvent = levelEvent;
+        _form.Load(levelEvent);
+        ClearMessage();
+    }
+
+    private void UpdateStartsAt(ChangeEventArgs eventArgs) =>
+        _form.StartsAt = NormalizeDateInput(eventArgs.Value);
+
+    private void UpdateEndsAt(ChangeEventArgs eventArgs) =>
+        _form.EndsAt = NormalizeDateInput(eventArgs.Value);
+
+    private static string NormalizeDateInput(object? value)
+    {
+        if (value is DateTime dateTime)
+        {
+            return dateTime.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+        }
+
+        var text = value?.ToString();
+        return TryParseInputDate(text, out var parsed)
+            ? parsed.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture)
+            : text ?? string.Empty;
+    }
+
+    private async Task SaveEventAsync()
+    {
+        if (_isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _userSearchVersion++;
+        ClearMessage();
+        try
+        {
+            var isCreating = _selectedEventId is null;
+            var saved = _selectedEventId is { } eventId
+                ? IsSelectedEventCompleted
+                    ? await Administration.UpdateCompletedEventDetailsAsync(
+                        _actorUserId, eventId, _form.ToDetailsInput())
+                    : await Administration.UpdateEventAsync(
+                        _actorUserId, eventId, _form.ToInput(IsStartDateLocked))
+                : await Administration.CreateEventAsync(_actorUserId, _form.ToInput());
+            _selectedEventId = saved.Id;
+            _selectedEvent = saved;
+            _form.Load(saved);
+            _message = isCreating ? "Event created." : "Event saved.";
+            await ReloadAsync();
+        }
+        catch (AdministrationException exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task ToggleAdminAsync(AdminUser user)
+    {
+        if (_isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        ClearMessage();
+        try
+        {
+            await Administration.SetAdminAsync(_actorUserId, user.Id, !user.IsAdmin);
+            _userSearchVersion++;
+            _message = user.IsAdmin
+                ? $"{user.DisplayName} is no longer an administrator."
+                : $"{user.DisplayName} is now an administrator.";
+            _users = await Administration.GetUsersAsync(_actorUserId, _userSearch);
+        }
+        catch (AdministrationException exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task SearchUsersAsync()
+    {
+        var searchVersion = ++_userSearchVersion;
+        try
+        {
+            var users = await Administration.GetUsersAsync(_actorUserId, _userSearch);
+            if (searchVersion == _userSearchVersion)
+            {
+                _users = users;
+            }
+        }
+        catch (AdministrationException exception)
+        {
+            if (searchVersion == _userSearchVersion)
+            {
+                ShowError(exception.Message);
+            }
+        }
+    }
+
+    private void ShowError(string message)
+    {
+        _message = message;
+        _hasError = true;
+    }
+
+    private void ClearMessage()
+    {
+        _message = null;
+        _hasError = false;
+    }
+
+    private static string StatusLabel(LevelEvent levelEvent) =>
+        IsCompleted(levelEvent) ? "COMPLETED" : "ONGOING";
+
+    private static bool IsCompleted(LevelEvent levelEvent) =>
+        levelEvent.Status is "closed" or "archived" ||
+        levelEvent.EndsAt <= DateTimeOffset.UtcNow;
+
+    private bool IsSelectedEventCompleted =>
+        _selectedEvent is not null && IsCompleted(_selectedEvent);
+
+    private bool IsStartDateLocked =>
+        IsSelectedEventCompleted ||
+        _selectedEvent?.StartsAt <= DateTimeOffset.UtcNow;
+
+    private static string ScheduleLabel(LevelEvent levelEvent) =>
+        $"{FormatShortDate(levelEvent.StartsAt)} - {FormatShortDate(levelEvent.EndsAt)}";
+
+    private static string FormatShortDate(DateTimeOffset? value) =>
+        value?.UtcDateTime.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture) ?? "NO LIMIT";
+
+    private static string FormatDate(DateTimeOffset? value) =>
+        value is null
+            ? string.Empty
+            : value.Value.UtcDateTime.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+
+    private static DateTimeOffset? ToUtc(string? value) =>
+        TryParseInputDate(value, out var parsed)
+            ? new DateTimeOffset(DateTime.SpecifyKind(parsed, DateTimeKind.Utc))
+            : null;
+
+    private static bool TryParseInputDate(string? value, out DateTime parsed) =>
+        DateTime.TryParseExact(
+            value,
+            "yyyy-MM-ddTHH:mm",
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.None,
+            out parsed) ||
+        DateTime.TryParse(
+            value,
+            CultureInfo.CurrentCulture,
+            DateTimeStyles.AllowWhiteSpaces,
+            out parsed) ||
+        DateTime.TryParse(
+            value,
+            CultureInfo.InvariantCulture,
+            DateTimeStyles.AllowWhiteSpaces,
+            out parsed);
+
+    private sealed class EventForm
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Slug { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string StartsAt { get; set; } = string.Empty;
+        public string EndsAt { get; set; } = string.Empty;
+        public int CooldownSeconds { get; set; } = 60;
+        private DateTimeOffset? OriginalStartsAt { get; set; }
+
+        public void Reset()
+        {
+            Name = string.Empty;
+            Slug = string.Empty;
+            Description = string.Empty;
+            CooldownSeconds = 60;
+            var now = DateTime.UtcNow;
+            var startsAt = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
+            StartsAt = startsAt.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+            EndsAt = startsAt.AddDays(7).ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
+            OriginalStartsAt = null;
+        }
+
+        public void Load(LevelEvent levelEvent)
+        {
+            Name = levelEvent.Name;
+            Slug = levelEvent.Slug;
+            Description = levelEvent.Description ?? string.Empty;
+            StartsAt = FormatDate(levelEvent.StartsAt);
+            EndsAt = FormatDate(levelEvent.EndsAt);
+            CooldownSeconds = levelEvent.CooldownSeconds;
+            OriginalStartsAt = levelEvent.StartsAt;
+        }
+
+        public AdminEventInput ToInput(bool preserveStartDate = false) => new(
+            Slug,
+            Name,
+            Description,
+            CooldownSeconds,
+            preserveStartDate ? OriginalStartsAt : ToUtc(StartsAt),
+            ToUtc(EndsAt));
+
+        public AdminEventDetailsInput ToDetailsInput() => new(
+            Slug,
+            Name,
+            Description);
+    }
+}

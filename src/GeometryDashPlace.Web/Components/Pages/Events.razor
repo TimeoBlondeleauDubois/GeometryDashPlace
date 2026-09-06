@@ -1,20 +1,30 @@
 @page "/events"
 @rendermode InteractiveServer
+@implements IDisposable
 @using System.Globalization
 @using GeometryDashPlace.Web.Events
 @inject ILevelEventRepository EventRepository
+@inject EventLifecycleNotifier EventLifecycle
+@inject NavigationManager Navigation
 
 <PageTitle>Events - Geometry Dash Place</PageTitle>
 
 <main class="events-page">
     <header class="events-header">
         <GeometryDashText Text="EVENTS" Height="42" Gold="true" />
-        @if (_currentEvent is not null)
-        {
-            <a class="events-live-button" href="/">
-                <GeometryDashText Text="RETURN TO LIVE" Height="17" />
-            </a>
-        }
+        <div class="events-header-actions">
+            <AuthorizeView Policy="Admin">
+                <a class="events-live-button events-admin-button" href="/admin">
+                    <GeometryDashText Text="ADMIN" Height="17" />
+                </a>
+            </AuthorizeView>
+            @if (_currentEvent is not null)
+            {
+                <a class="events-live-button" href="/">
+                    <GeometryDashText Text="RETURN TO LIVE" Height="17" />
+                </a>
+            }
+        </div>
     </header>
 
     @if (_isLoading)
@@ -74,6 +84,8 @@
     private LevelEvent? _currentEvent;
     private bool _isLoading = true;
     private string? _error;
+    private IDisposable? _eventLifecycleSubscription;
+    private bool _waitingForEvent;
 
     protected override async Task OnInitializedAsync()
     {
@@ -81,6 +93,8 @@
         {
             _currentEvent = await EventRepository.GetCurrentAsync();
             _pastEvents = await EventRepository.GetPastAsync();
+            _waitingForEvent = _currentEvent is null;
+            _eventLifecycleSubscription = EventLifecycle.Subscribe(HandleEventLifecycleChangedAsync);
         }
         catch
         {
@@ -91,4 +105,20 @@
             _isLoading = false;
         }
     }
+
+    public void Dispose() => _eventLifecycleSubscription?.Dispose();
+
+    private Task HandleEventLifecycleChangedAsync() => InvokeAsync(async () =>
+    {
+        if (!_waitingForEvent)
+        {
+            return;
+        }
+
+        var current = await EventRepository.GetCurrentAsync();
+        if (current is not null)
+        {
+            Navigation.NavigateTo("/", forceLoad: true, replace: true);
+        }
+    });
 }

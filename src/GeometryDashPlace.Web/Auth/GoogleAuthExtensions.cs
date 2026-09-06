@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Authorization;
 
 namespace GeometryDashPlace.Web.Auth;
 
@@ -35,6 +36,7 @@ public static class GoogleAuthExtensions
         }
 
         services.AddScoped<GoogleUserSynchronizer>();
+        services.AddScoped<IAuthorizationHandler, AdminAuthorizationHandler>();
         services.AddCascadingAuthenticationState();
         services
             .AddAuthentication(options =>
@@ -113,7 +115,10 @@ public static class GoogleAuthExtensions
                 };
             });
 
-        services.AddAuthorization();
+        services.AddAuthorization(options =>
+            options.AddPolicy(
+                AdminPolicy.Name,
+                policy => policy.AddRequirements(new AdminRequirement())));
         return services;
     }
 
