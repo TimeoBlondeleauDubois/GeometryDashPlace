@@ -1,4 +1,5 @@
 using GeometryDashPlace.Web.Auth;
+using GeometryDashPlace.Web.Administration;
 using GeometryDashPlace.Web.Components.Editor;
 using GeometryDashPlace.Web.Components.Editor.State;
 using GeometryDashPlace.Web.Events;
@@ -21,7 +22,13 @@ public partial class Home : ComponentBase, IDisposable
     private LevelRealtimeService Realtime { get; set; } = default!;
 
     [Inject]
+    private EventLifecycleNotifier EventLifecycle { get; set; } = default!;
+
+    [Inject]
     private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
+
+    [Inject]
+    private IAdministrationService Administration { get; set; } = default!;
 
     [Inject]
     private ILogger<Home> Logger { get; set; } = default!;
@@ -34,13 +41,16 @@ public partial class Home : ComponentBase, IDisposable
     protected EditorPersistenceActions Actions { get; }
     protected LevelEvent? CurrentEvent { get; private set; }
     protected bool IsAuthenticated { get; private set; }
+    protected bool IsAdmin { get; private set; }
     protected bool IsLoading { get; private set; } = true;
     protected bool IsSaving { get; private set; }
+    protected bool IsAccountMenuOpen { get; private set; }
     protected string? UserDisplayName { get; private set; }
     protected string? StatusMessage { get; private set; }
     private Guid? _userId;
     private readonly CancellationTokenSource _lifetime = new();
     private IDisposable? _levelSubscription;
+    private IDisposable? _eventLifecycleSubscription;
     private long _levelRevision;
 
     public Home()
@@ -61,6 +71,7 @@ public partial class Home : ComponentBase, IDisposable
                 IsAuthenticated = true;
                 _userId = userId;
                 UserDisplayName = authenticationState.User.Identity?.Name;
+                IsAdmin = await Administration.IsAdminAsync(userId);
             }
 
             CurrentEvent = await EventRepository.GetCurrentAsync();
@@ -80,6 +91,8 @@ public partial class Home : ComponentBase, IDisposable
 
             _levelSubscription = Realtime.Subscribe(
                 CurrentEvent.Id, HandleLevelChangedAsync);
+            _eventLifecycleSubscription = EventLifecycle.Subscribe(
+                HandleEventLifecycleChangedAsync);
             await ReloadLevelSafelyAsync();
             if (IsAuthenticated && _userId is { } authenticatedUserId)
             {
@@ -104,6 +117,7 @@ public partial class Home : ComponentBase, IDisposable
     {
         _lifetime.Cancel();
         _levelSubscription?.Dispose();
+        _eventLifecycleSubscription?.Dispose();
         Editor.Changed -= HandleEditorChanged;
     }
 
@@ -111,6 +125,10 @@ public partial class Home : ComponentBase, IDisposable
     {
         _ = InvokeAsync(StateHasChanged);
     }
+
+    protected void ToggleAccountMenu() => IsAccountMenuOpen = !IsAccountMenuOpen;
+
+    protected void CloseAccountMenu() => IsAccountMenuOpen = false;
 
     private async Task ConfirmPlacementAsync()
     {
@@ -242,6 +260,20 @@ public partial class Home : ComponentBase, IDisposable
             source);
         _levelRevision = change.Revision;
         StateHasChanged();
+    });
+
+    private Task HandleEventLifecycleChangedAsync() => InvokeAsync(async () =>
+    {
+        var current = await EventRepository.GetCurrentAsync();
+        if (current?.Id == CurrentEvent?.Id)
+        {
+            return;
+        }
+
+        Navigation.NavigateTo(
+            current is null ? "/events" : "/",
+            forceLoad: true,
+            replace: true);
     });
 
     private async Task RunCooldownClockAsync(CancellationToken cancellationToken)
