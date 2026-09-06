@@ -7,7 +7,8 @@ using Npgsql;
 namespace GeometryDashPlace.Web.Auth;
 
 public sealed class GoogleUserSynchronizer(
-    IDbContextFactory<GeometryDashPlaceDbContext> contextFactory)
+    IDbContextFactory<GeometryDashPlaceDbContext> contextFactory,
+    SiteOwnership siteOwnership)
 {
     public async Task<GoogleUser> SynchronizeAsync(
         string subject,
@@ -59,6 +60,7 @@ public sealed class GoogleUserSynchronizer(
                 DisplayName = displayName,
                 AvatarUrl = avatarUrl,
                 IsEmailVerified = isEmailVerified,
+                IsAdmin = siteOwnership.IsOwner(email),
                 CreatedAt = now,
                 LastLoginAt = now
             };
@@ -70,6 +72,7 @@ public sealed class GoogleUserSynchronizer(
             user.DisplayName = displayName;
             user.AvatarUrl = avatarUrl;
             user.IsEmailVerified = isEmailVerified;
+            user.IsAdmin |= siteOwnership.IsOwner(email);
             user.LastLoginAt = now;
         }
 
