@@ -12,6 +12,9 @@ namespace GeometryDashPlace.Web.Components.Pages;
 
 public partial class Home : ComponentBase, IDisposable
 {
+    private static readonly TimeSpan PreviewPublishInterval = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan PreviewHeartbeatInterval = TimeSpan.FromSeconds(1);
+
     [Inject]
     private ILevelEventRepository EventRepository { get; set; } = default!;
 
@@ -20,6 +23,9 @@ public partial class Home : ComponentBase, IDisposable
 
     [Inject]
     private LevelRealtimeService Realtime { get; set; } = default!;
+
+    [Inject]
+    private EditorCircuitPresence CircuitPresence { get; set; } = default!;
 
     [Inject]
     private EventLifecycleNotifier EventLifecycle { get; set; } = default!;
@@ -53,6 +59,7 @@ public partial class Home : ComponentBase, IDisposable
     private IDisposable? _previewSubscription;
     private IDisposable? _eventLifecycleSubscription;
     private PlacementPreview? _lastPublishedPreview;
+    private DateTimeOffset _lastPreviewPublishedAt;
     private PendingRecentPlacement? _pendingRecentPlacement;
     private long _levelRevision;
 
@@ -101,10 +108,12 @@ public partial class Home : ComponentBase, IDisposable
             await ReloadLevelSafelyAsync();
             if (IsAuthenticated && _userId is { } authenticatedUserId)
             {
+                CircuitPresence.Track(CurrentEvent.Id, authenticatedUserId);
                 var cooldown = await LevelRepository.GetCooldownAsync(
                     CurrentEvent.Id, authenticatedUserId);
                 Cooldown.Synchronize(cooldown.ServerTime, cooldown.NextPlacementAt);
                 _ = RunCooldownClockAsync(_lifetime.Token);
+                _ = RunPlacementPreviewClockAsync(_lifetime.Token);
             }
         }
         catch (Exception exception)
@@ -126,6 +135,7 @@ public partial class Home : ComponentBase, IDisposable
             _ = Realtime.PublishPreviewAsync(
                 _lastPublishedPreview with { IsActive = false, Type = null });
         }
+        CircuitPresence.StopTracking();
         _levelSubscription?.Dispose();
         _previewSubscription?.Dispose();
         _eventLifecycleSubscription?.Dispose();
@@ -135,7 +145,6 @@ public partial class Home : ComponentBase, IDisposable
     private void HandleEditorChanged()
     {
         _ = InvokeAsync(StateHasChanged);
-        _ = PublishPlacementPreviewIfChangedAsync();
     }
 
     protected void ToggleAccountMenu() => IsAccountMenuOpen = !IsAccountMenuOpen;
@@ -363,9 +372,10 @@ public partial class Home : ComponentBase, IDisposable
                 : null);
     });
 
-    private async Task PublishPlacementPreviewIfChangedAsync()
+    private async Task PublishPlacementPreviewIfNeededAsync()
     {
         if (_lifetime.IsCancellationRequested ||
+            !CircuitPresence.IsConnected ||
             !IsAuthenticated ||
             _userId is not { } userId ||
             CurrentEvent is null)
@@ -390,16 +400,22 @@ public partial class Home : ComponentBase, IDisposable
                 pending.Green,
                 pending.Blue,
                 pending.Duration);
-        if (preview == _lastPublishedPreview ||
+        var now = DateTimeOffset.UtcNow;
+        var changed = preview != _lastPublishedPreview;
+        var heartbeatDue = preview.IsActive &&
+            !changed &&
+            now - _lastPreviewPublishedAt >= PreviewHeartbeatInterval;
+        if ((!changed && !heartbeatDue) ||
             !preview.IsActive && _lastPublishedPreview is null)
         {
             return;
         }
 
-        _lastPublishedPreview = preview;
         try
         {
             await Realtime.PublishPreviewAsync(preview);
+            _lastPublishedPreview = preview;
+            _lastPreviewPublishedAt = now;
         }
         catch (Exception exception)
         {
@@ -429,6 +445,21 @@ public partial class Home : ComponentBase, IDisposable
             while (await timer.WaitForNextTickAsync(cancellationToken))
             {
                 await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+    }
+
+    private async Task RunPlacementPreviewClockAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(PreviewPublishInterval);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(PublishPlacementPreviewIfNeededAsync);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
