@@ -5,6 +5,7 @@ namespace GeometryDashPlace.Web.Realtime;
 
 public sealed class LevelRealtimeService(
     IHubContext<LevelHub, ILevelClient> hubContext,
+    PlacementPreviewPresence previewPresence,
     ILogger<LevelRealtimeService> logger)
 {
     private readonly ConcurrentDictionary<Guid,
@@ -35,6 +36,20 @@ public sealed class LevelRealtimeService(
     }
 
     public async Task PublishPreviewAsync(PlacementPreview preview)
+    {
+        previewPresence.Observe(preview);
+        await BroadcastPreviewAsync(preview);
+    }
+
+    public async Task ExpireInactivePreviewsAsync()
+    {
+        foreach (var preview in previewPresence.TakeExpired())
+        {
+            await BroadcastPreviewAsync(preview);
+        }
+    }
+
+    private async Task BroadcastPreviewAsync(PlacementPreview preview)
     {
         try
         {
