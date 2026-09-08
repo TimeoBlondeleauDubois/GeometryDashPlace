@@ -11,4 +11,6 @@ public sealed record LevelEvent(
     long Revision,
     string Status,
     DateTimeOffset? StartsAt,
-    DateTimeOffset? EndsAt);
+    DateTimeOffset? EndsAt,
+    string BackgroundKey,
+    string GroundKey);

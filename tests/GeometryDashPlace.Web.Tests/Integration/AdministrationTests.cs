@@ -1,4 +1,5 @@
 using GeometryDashPlace.Web.Administration;
+using GeometryDashPlace.Web.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -39,7 +40,9 @@ public sealed class AdministrationTests(PostgreSqlIntegrationFixture database)
             "Created through the secured administration service.",
             90,
             startsAt,
-            endsAt);
+            endsAt,
+            "background-02",
+            "ground-02");
 
         await administration.SetAdminAsync(
             scenario.UserId,
@@ -48,6 +51,8 @@ public sealed class AdministrationTests(PostgreSqlIntegrationFixture database)
         var created = await administration.CreateEventAsync(scenario.UserId, input);
 
         Assert.Equal("open", created.Status);
+        Assert.Equal("background-02", created.BackgroundKey);
+        Assert.Equal("ground-02", created.GroundKey);
         await using (var context = database.CreateDbContext())
         {
             Assert.True(await context.Users
@@ -159,5 +164,89 @@ public sealed class AdministrationTests(PostgreSqlIntegrationFixture database)
             administration.UpdateEventAsync(scenario.UserId, scenario.EventId, input));
 
         Assert.Equal("event_start_locked", exception.Code);
+    }
+
+    [PostgreSqlFact]
+    public async Task Admin_CanBanUserAndExistingSessionCannotPlace()
+    {
+        var scenario = await database.CreateScenarioAsync(
+            userCount: 2,
+            isAdmin: true);
+        using var scope = database.Application.Services.CreateScope();
+        var administration = scope.ServiceProvider.GetRequiredService<IAdministrationService>();
+        var levels = scope.ServiceProvider.GetRequiredService<ILevelRepository>();
+
+        await administration.SetBannedAsync(
+            scenario.UserIds[0],
+            scenario.UserIds[1],
+            isBanned: true);
+
+        var exception = await Assert.ThrowsAsync<LevelPersistenceException>(() =>
+            levels.PlaceAsync(
+                scenario.EventId,
+                scenario.UserIds[1],
+                1,
+                1,
+                new PlaceLevelCellRequest(Guid.NewGuid(), "block")));
+        Assert.Equal("user_banned", exception.Code);
+
+        await using var context = database.CreateDbContext();
+        var bannedUser = await context.Users.AsNoTracking().SingleAsync(
+            user => user.Id == scenario.UserIds[1]);
+        Assert.True(bannedUser.IsBanned);
+        Assert.False(bannedUser.IsAdmin);
+    }
+
+    [PostgreSqlFact]
+    public async Task Admin_CanRevertOneChange()
+    {
+        var scenario = await database.CreateScenarioAsync(
+            userCount: 2,
+            isAdmin: true);
+        using var scope = database.Application.Services.CreateScope();
+        var administration = scope.ServiceProvider.GetRequiredService<IAdministrationService>();
+        var levels = scope.ServiceProvider.GetRequiredService<ILevelRepository>();
+
+        await levels.PlaceAsync(
+            scenario.EventId,
+            scenario.UserIds[1],
+            1,
+            1,
+            new PlaceLevelCellRequest(Guid.NewGuid(), "block"));
+        await levels.PlaceAsync(
+            scenario.EventId,
+            scenario.UserIds[1],
+            2,
+            1,
+            new PlaceLevelCellRequest(Guid.NewGuid(), "spike"));
+        await levels.PlaceAsync(
+            scenario.EventId,
+            scenario.UserIds[1],
+            1,
+            1,
+            new PlaceLevelCellRequest(Guid.NewGuid(), "yellow_orb"));
+
+        var reverted = await administration.RevertRevisionAsync(
+            scenario.UserIds[0], scenario.EventId, revision: 3);
+        var afterRevert = await levels.LoadAsync(scenario.EventId);
+
+        Assert.Equal(1, reverted.ChangedCells);
+        Assert.Equal(4, reverted.Revision);
+        Assert.Equal("block", afterRevert.Cells.Single(cell => cell.X == 1).Type);
+
+        await using var context = database.CreateDbContext();
+        var revisions = await context.PlacementHistory
+            .Where(history => history.EventId == scenario.EventId)
+            .OrderBy(history => history.Revision)
+            .Select(history => history.Revision)
+            .ToArrayAsync();
+        Assert.Equal(
+            new long[] { 1, 2, 3, 4 },
+            revisions);
+        Assert.All(
+            await context.PlacementHistory
+                .Where(history => history.EventId == scenario.EventId && history.Revision == 4)
+                .ToListAsync(),
+            history => Assert.Equal(scenario.UserIds[0], history.UserId));
     }
 }

@@ -64,6 +64,8 @@ public sealed class GeometryDashPlaceDbContext(
             entity.Property(levelEvent => levelEvent.Width).HasColumnName("width");
             entity.Property(levelEvent => levelEvent.Height).HasColumnName("height");
             entity.Property(levelEvent => levelEvent.CooldownSeconds).HasColumnName("cooldown_seconds");
+            entity.Property(levelEvent => levelEvent.BackgroundKey).HasColumnName("background_key").HasMaxLength(64);
+            entity.Property(levelEvent => levelEvent.GroundKey).HasColumnName("ground_key").HasMaxLength(64);
             entity.Property(levelEvent => levelEvent.Status).HasColumnName("status").HasMaxLength(16);
             entity.Property(levelEvent => levelEvent.CurrentRevision)
                 .HasColumnName("current_revision")

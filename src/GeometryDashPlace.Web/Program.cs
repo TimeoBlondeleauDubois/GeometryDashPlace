@@ -4,6 +4,7 @@ using GeometryDashPlace.Web.Auth;
 using GeometryDashPlace.Web.Components;
 using GeometryDashPlace.Web.Data;
 using GeometryDashPlace.Web.Events;
+using GeometryDashPlace.Web.Assets;
 using GeometryDashPlace.Web.Persistence;
 using GeometryDashPlace.Web.Realtime;
 using Microsoft.AspNetCore.Components.Server.Circuits;
@@ -34,11 +35,13 @@ var connectionString = builder.Environment.IsDevelopment()
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<EnvironmentAssetCatalog>();
 
 builder.Services.AddDbContextFactory<GeometryDashPlaceDbContext>(
     options => options.UseNpgsql(connectionString));
 builder.Services.AddScoped<ILevelRepository, EntityFrameworkLevelRepository>();
 builder.Services.AddScoped<ILevelEventRepository, EntityFrameworkLevelEventRepository>();
+builder.Services.AddScoped<IEventResultsRepository, EntityFrameworkEventResultsRepository>();
 builder.Services.AddScoped<EntityFrameworkAdministrationService>();
 builder.Services.AddScoped<IAdministrationService>(services =>
     services.GetRequiredService<EntityFrameworkAdministrationService>());
