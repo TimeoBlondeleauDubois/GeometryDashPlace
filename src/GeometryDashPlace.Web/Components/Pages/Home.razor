@@ -26,7 +26,8 @@ else
         <CascadingValue Value="Actions">
             <CascadingValue Value="Cooldown">
                 <main class="editor-page">
-                    <EditorViewport />
+                    <EditorViewport BackgroundTexturePath="@EnvironmentAssets.BackgroundPath(CurrentEvent.BackgroundKey)"
+                                    GroundTexturePath="@EnvironmentAssets.GroundPath(CurrentEvent.GroundKey)" />
                     <EditorToolbar />
 
                     @if (IsAuthenticated)

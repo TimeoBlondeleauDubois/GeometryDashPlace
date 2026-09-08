@@ -1,0 +1,12 @@
+<article class="activity-stat">
+    <span>@Label</span>
+    <strong>@Value</strong>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string Label { get; set; }
+
+    [Parameter]
+    public long Value { get; set; }
+}

@@ -4,12 +4,16 @@
 @using System.Globalization
 @using GeometryDashPlace.Web.Administration
 @using GeometryDashPlace.Web.Auth
+@using GeometryDashPlace.Web.Assets
 @using GeometryDashPlace.Web.Events
 @using Microsoft.AspNetCore.Authorization
 @inject IAdministrationService Administration
 @inject AuthenticationStateProvider AuthenticationStateProvider
+@inject EnvironmentAssetCatalog EnvironmentAssets
 
 <PageTitle>Administration - Geometry Dash Place</PageTitle>
+
+<RotatingPageBackground />
 
 <main class="admin-page">
     <header class="admin-header">
@@ -53,7 +57,7 @@
                     {
                         <button type="button"
                                 class="admin-event-item @(levelEvent.Id == _selectedEventId ? "selected" : null)"
-                                @onclick="() => SelectEvent(levelEvent)">
+                                @onclick="() => SelectEventAsync(levelEvent)">
                             <span class="admin-event-name">@levelEvent.Name</span>
                             <span class="event-status @(IsCompleted(levelEvent) ? "event-status-closed" : "event-status-open")">
                                 @StatusLabel(levelEvent)
@@ -116,6 +120,42 @@
                                @bind="_form.CooldownSeconds" />
                     </label>
 
+                    <fieldset class="environment-picker full-field" disabled="@IsSelectedEventCompleted">
+                        <legend>BACKGROUND</legend>
+                        <div class="environment-options" role="radiogroup" aria-label="Event background">
+                            @foreach (var asset in EnvironmentAssets.Backgrounds)
+                            {
+                                <button type="button"
+                                        class="environment-option @(asset.Key == _form.BackgroundKey ? "selected" : null)"
+                                        aria-label="@asset.Label"
+                                        aria-pressed="@(asset.Key == _form.BackgroundKey)"
+                                        title="@asset.Label"
+                                        @onclick="() => _form.BackgroundKey = asset.Key">
+                                    <img src="@asset.Path" alt="" loading="lazy" />
+                                    <span>@asset.Label</span>
+                                </button>
+                            }
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="environment-picker full-field" disabled="@IsSelectedEventCompleted">
+                        <legend>GROUND</legend>
+                        <div class="environment-options ground-options" role="radiogroup" aria-label="Event ground">
+                            @foreach (var asset in EnvironmentAssets.Grounds)
+                            {
+                                <button type="button"
+                                        class="environment-option ground-option @(asset.Key == _form.GroundKey ? "selected" : null)"
+                                        aria-label="@asset.Label"
+                                        aria-pressed="@(asset.Key == _form.GroundKey)"
+                                        title="@asset.Label"
+                                        @onclick="() => _form.GroundKey = asset.Key">
+                                    <img src="@asset.Path" alt="" loading="lazy" />
+                                    <span>@asset.Label</span>
+                                </button>
+                            }
+                        </div>
+                    </fieldset>
+
                     <div class="event-form-actions full-field">
                         <button class="gd-button" type="submit" disabled="@_isSaving">
                             <GeometryDashText Text="@(_selectedEventId is null ? "CREATE" : "SAVE")" Height="16" />
@@ -161,23 +201,110 @@
                         </div>
                         @if (!user.IsSiteOwner && user.Id != _actorUserId)
                         {
-                            <button type="button"
-                                    class="gd-button compact-button @(user.IsAdmin ? "gd-button-danger" : null)"
-                                    disabled="@(_isSaving || user.IsBanned)"
-                                    @onclick="() => ToggleAdminAsync(user)">
-                                <GeometryDashText Text="@(user.IsAdmin ? "REMOVE ADMIN" : "MAKE ADMIN")" Height="12" />
-                            </button>
+                            <div class="admin-user-actions">
+                                <button type="button"
+                                        class="gd-button compact-button @(user.IsAdmin ? "gd-button-danger" : null)"
+                                        disabled="@(_isSaving || user.IsBanned)"
+                                        @onclick="() => ToggleAdminAsync(user)">
+                                    <GeometryDashText Text="@(user.IsAdmin ? "REMOVE ADMIN" : "MAKE ADMIN")" Height="12" />
+                                </button>
+                                <button type="button"
+                                        class="gd-button compact-button @(user.IsBanned ? null : "gd-button-danger")"
+                                        disabled="@_isSaving"
+                                        @onclick="() => ToggleBannedAsync(user)">
+                                    <GeometryDashText Text="@(user.IsBanned ? "UNBAN" : "BAN")" Height="12" />
+                                </button>
+                            </div>
                         }
                     </article>
                 }
             </div>
         </section>
+
+        @if (_selectedEvent is not null)
+        {
+            <section class="admin-panel moderation-panel">
+                <div class="panel-heading">
+                    <GeometryDashText Text="LEVEL MODERATION" Height="24" />
+                    <span class="moderation-revision">REVISION @_selectedEvent.Revision</span>
+                </div>
+
+                @if (IsSelectedEventCompleted)
+                {
+                    <p class="moderation-locked">
+                        This event is completed. Its final level and history are locked.
+                    </p>
+                }
+                else
+                {
+                    <div class="moderation-history">
+                        @if (_placementHistory.Count == 0)
+                        {
+                            <p class="moderation-empty">No placement has been recorded yet.</p>
+                        }
+                        else
+                        {
+                            @foreach (var change in _placementHistory)
+                            {
+                                <article class="moderation-history-row">
+                                    <strong>#@change.Revision</strong>
+                                    <span class="moderation-action">@ActionLabel(change.Action)</span>
+                                    <span>@change.UserDisplayName</span>
+                                    <span>@PositionLabel(change)</span>
+                                    @if (change.ObjectType is not null)
+                                    {
+                                        <span>@change.ObjectType</span>
+                                    }
+                                    <time datetime="@change.CreatedAt.ToString("O")">
+                                        @FormatModerationDate(change.CreatedAt)
+                                    </time>
+                                    <button type="button"
+                                            class="gd-button compact-button gd-button-danger"
+                                            disabled="@_isSaving"
+                                            @onclick="() => QueueRevert(change)">
+                                        <GeometryDashText Text="UNDO" Height="12" />
+                                    </button>
+                                </article>
+                            }
+                        }
+                    </div>
+                }
+            </section>
+        }
+
+        @if (_pendingModeration is not null)
+        {
+            <div class="moderation-confirm-backdrop">
+                <section class="moderation-confirm-dialog"
+                         role="alertdialog"
+                         aria-modal="true"
+                         aria-labelledby="moderation-confirm-title">
+                    <span id="moderation-confirm-title">
+                        <GeometryDashText Text="CONFIRM MODERATION" Height="24" Gold="true" />
+                    </span>
+                    <p>@_pendingModeration.Message</p>
+                    <p>A new audited revision will be created. Existing history will not be deleted.</p>
+                    <div class="moderation-confirm-actions">
+                        <button type="button" class="gd-button gd-button-blue" @onclick="CancelModeration">
+                            <GeometryDashText Text="CANCEL" Height="14" />
+                        </button>
+                        <button type="button"
+                                class="gd-button gd-button-danger"
+                                disabled="@_isSaving"
+                                @onclick="ConfirmModerationAsync">
+                            <GeometryDashText Text="CONFIRM" Height="14" />
+                        </button>
+                    </div>
+                </section>
+            </div>
+        }
     }
 </main>
 
 @code {
     private IReadOnlyList<LevelEvent> _events = [];
     private IReadOnlyList<AdminUser> _users = [];
+    private IReadOnlyList<AdminPlacementHistory> _placementHistory = [];
     private readonly EventForm _form = new();
     private Guid _actorUserId;
     private Guid? _selectedEventId;
@@ -188,6 +315,7 @@
     private bool _isSaving;
     private bool _hasError;
     private string? _message;
+    private PendingModeration? _pendingModeration;
 
     protected override async Task OnInitializedAsync()
     {
@@ -214,6 +342,10 @@
             if (_selectedEventId is { } eventId)
             {
                 _selectedEvent = _events.SingleOrDefault(levelEvent => levelEvent.Id == eventId);
+                _placementHistory = _selectedEvent is null
+                    ? []
+                    : await Administration.GetPlacementHistoryAsync(
+                        _actorUserId, eventId);
             }
         }
         catch (AdministrationException exception)
@@ -226,16 +358,28 @@
     {
         _selectedEventId = null;
         _selectedEvent = null;
+        _placementHistory = [];
+        _pendingModeration = null;
         _form.Reset();
         ClearMessage();
     }
 
-    private void SelectEvent(LevelEvent levelEvent)
+    private async Task SelectEventAsync(LevelEvent levelEvent)
     {
         _selectedEventId = levelEvent.Id;
         _selectedEvent = levelEvent;
+        _placementHistory = [];
         _form.Load(levelEvent);
         ClearMessage();
+        try
+        {
+            _placementHistory = await Administration.GetPlacementHistoryAsync(
+                _actorUserId, levelEvent.Id);
+        }
+        catch (AdministrationException exception)
+        {
+            ShowError(exception.Message);
+        }
     }
 
     private void UpdateStartsAt(ChangeEventArgs eventArgs) =>
@@ -321,6 +465,77 @@
         }
     }
 
+    private async Task ToggleBannedAsync(AdminUser user)
+    {
+        if (_isSaving)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        ClearMessage();
+        try
+        {
+            await Administration.SetBannedAsync(
+                _actorUserId, user.Id, !user.IsBanned);
+            _userSearchVersion++;
+            _message = user.IsBanned
+                ? $"{user.DisplayName} is no longer banned."
+                : $"{user.DisplayName} is now banned.";
+            _users = await Administration.GetUsersAsync(_actorUserId, _userSearch);
+        }
+        catch (AdministrationException exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void QueueRevert(AdminPlacementHistory change)
+    {
+        _pendingModeration = new PendingModeration(
+            change.Revision,
+            $"Undo revision {change.Revision} made by {change.UserDisplayName}?");
+        ClearMessage();
+    }
+
+    private void CancelModeration() => _pendingModeration = null;
+
+    private async Task ConfirmModerationAsync()
+    {
+        var pending = _pendingModeration;
+        if (_isSaving || pending is null || _selectedEventId is not { } eventId)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        ClearMessage();
+        try
+        {
+            var result = await Administration.RevertRevisionAsync(
+                _actorUserId, eventId, pending.Revision);
+            _pendingModeration = null;
+            _message = $"Revision {pending.Revision} was undone. {result.ChangedCells} cells changed.";
+            await ReloadAsync();
+            if (_selectedEvent is not null)
+            {
+                _form.Load(_selectedEvent);
+            }
+        }
+        catch (AdministrationException exception)
+        {
+            ShowError(exception.Message);
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
     private async Task SearchUsersAsync()
     {
         var searchVersion = ++_userSearchVersion;
@@ -373,6 +588,24 @@
     private static string FormatShortDate(DateTimeOffset? value) =>
         value?.UtcDateTime.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture) ?? "NO LIMIT";
 
+    private static string FormatModerationDate(DateTimeOffset value) =>
+        value.LocalDateTime.ToString("dd MMM HH:mm:ss", CultureInfo.InvariantCulture);
+
+    private static string ActionLabel(string action) => action switch
+    {
+        "place" => "PLACED",
+        "replace" => "REPLACED",
+        "delete" => "DELETED",
+        "move" => "MOVED",
+        "move_replace" => "MOVED + REPLACED",
+        _ => action.ToUpperInvariant()
+    };
+
+    private static string PositionLabel(AdminPlacementHistory change) =>
+        change.SourceX is { } sourceX && change.SourceY is { } sourceY
+            ? $"({sourceX}, {sourceY}) -> ({change.X}, {change.Y})"
+            : $"({change.X}, {change.Y})";
+
     private static string FormatDate(DateTimeOffset? value) =>
         value is null
             ? string.Empty
@@ -409,6 +642,8 @@
         public string StartsAt { get; set; } = string.Empty;
         public string EndsAt { get; set; } = string.Empty;
         public int CooldownSeconds { get; set; } = 60;
+        public string BackgroundKey { get; set; } = EnvironmentAssetCatalog.DefaultBackgroundKey;
+        public string GroundKey { get; set; } = EnvironmentAssetCatalog.DefaultGroundKey;
         private DateTimeOffset? OriginalStartsAt { get; set; }
 
         public void Reset()
@@ -417,6 +652,8 @@
             Slug = string.Empty;
             Description = string.Empty;
             CooldownSeconds = 60;
+            BackgroundKey = EnvironmentAssetCatalog.DefaultBackgroundKey;
+            GroundKey = EnvironmentAssetCatalog.DefaultGroundKey;
             var now = DateTime.UtcNow;
             var startsAt = new DateTime(now.Year, now.Month, now.Day, now.Hour, now.Minute, 0);
             StartsAt = startsAt.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
@@ -432,6 +669,8 @@
             StartsAt = FormatDate(levelEvent.StartsAt);
             EndsAt = FormatDate(levelEvent.EndsAt);
             CooldownSeconds = levelEvent.CooldownSeconds;
+            BackgroundKey = levelEvent.BackgroundKey;
+            GroundKey = levelEvent.GroundKey;
             OriginalStartsAt = levelEvent.StartsAt;
         }
 
@@ -441,11 +680,17 @@
             Description,
             CooldownSeconds,
             preserveStartDate ? OriginalStartsAt : ToUtc(StartsAt),
-            ToUtc(EndsAt));
+            ToUtc(EndsAt),
+            BackgroundKey,
+            GroundKey);
 
         public AdminEventDetailsInput ToDetailsInput() => new(
             Slug,
             Name,
             Description);
     }
+
+    private sealed record PendingModeration(
+        long Revision,
+        string Message);
 }

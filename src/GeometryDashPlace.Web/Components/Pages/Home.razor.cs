@@ -3,6 +3,7 @@ using GeometryDashPlace.Web.Administration;
 using GeometryDashPlace.Web.Components.Editor;
 using GeometryDashPlace.Web.Components.Editor.State;
 using GeometryDashPlace.Web.Events;
+using GeometryDashPlace.Web.Assets;
 using GeometryDashPlace.Web.Persistence;
 using GeometryDashPlace.Web.Realtime;
 using Microsoft.AspNetCore.Components;
@@ -35,6 +36,9 @@ public partial class Home : ComponentBase, IDisposable
 
     [Inject]
     private IAdministrationService Administration { get; set; } = default!;
+
+    [Inject]
+    protected EnvironmentAssetCatalog EnvironmentAssets { get; set; } = default!;
 
     [Inject]
     private ILogger<Home> Logger { get; set; } = default!;
@@ -334,6 +338,12 @@ public partial class Home : ComponentBase, IDisposable
             Cooldown.SetNextActionAt(change.NextPlacementAt);
         }
 
+        if (change.Action == "moderation_restore")
+        {
+            await ReloadLevelSafelyAsync(preserveDraft: true);
+            return;
+        }
+
         if (change.Revision <= _levelRevision)
         {
             return;
@@ -426,7 +436,9 @@ public partial class Home : ComponentBase, IDisposable
     private Task HandleEventLifecycleChangedAsync() => InvokeAsync(async () =>
     {
         var current = await EventRepository.GetCurrentAsync();
-        if (current?.Id == CurrentEvent?.Id)
+        if (current?.Id == CurrentEvent?.Id &&
+            current?.BackgroundKey == CurrentEvent?.BackgroundKey &&
+            current?.GroundKey == CurrentEvent?.GroundKey)
         {
             return;
         }

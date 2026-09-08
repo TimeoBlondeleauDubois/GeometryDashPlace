@@ -1,0 +1,79 @@
+@implements IDisposable
+@using GeometryDashPlace.Web.Assets
+@inject EnvironmentAssetCatalog EnvironmentAssets
+
+<div class="rotating-background-layer @(_showFirst ? "is-visible" : null)"
+     style="background-image: url('@_firstPath')"></div>
+<div class="rotating-background-layer @(_showFirst ? null : "is-visible")"
+     style="background-image: url('@_secondPath')"></div>
+<div class="rotating-background-tint"></div>
+
+@code {
+    private readonly Random _random = new();
+    private System.Timers.Timer? _timer;
+    private string _firstPath = string.Empty;
+    private string _secondPath = string.Empty;
+    private bool _showFirst = true;
+    private bool _disposed;
+
+    protected override void OnInitialized()
+    {
+        _firstPath = PickPath();
+        _secondPath = PickPath(_firstPath);
+        _timer = new System.Timers.Timer(TimeSpan.FromSeconds(10))
+        {
+            AutoReset = true
+        };
+        _timer.Elapsed += ChangeBackground;
+        _timer.Start();
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_timer is not null)
+        {
+            _timer.Elapsed -= ChangeBackground;
+            _timer.Stop();
+            _timer.Dispose();
+        }
+    }
+
+    private void ChangeBackground(object? sender, System.Timers.ElapsedEventArgs eventArgs)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_showFirst)
+        {
+            _secondPath = PickPath(_firstPath);
+        }
+        else
+        {
+            _firstPath = PickPath(_secondPath);
+        }
+
+        _showFirst = !_showFirst;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private string PickPath(string? excluded = null)
+    {
+        if (EnvironmentAssets.Backgrounds.Count == 1)
+        {
+            return EnvironmentAssets.Backgrounds[0].Path;
+        }
+
+        string path;
+        do
+        {
+            path = EnvironmentAssets.Backgrounds[
+                _random.Next(EnvironmentAssets.Backgrounds.Count)].Path;
+        }
+        while (path == excluded);
+
+        return path;
+    }
+}
