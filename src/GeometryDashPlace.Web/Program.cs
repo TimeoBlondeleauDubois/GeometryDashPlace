@@ -6,6 +6,7 @@ using GeometryDashPlace.Web.Data;
 using GeometryDashPlace.Web.Events;
 using GeometryDashPlace.Web.Persistence;
 using GeometryDashPlace.Web.Realtime;
+using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,7 +45,12 @@ builder.Services.AddScoped<IAdministrationService>(services =>
 builder.Services.AddScoped<IEventLifecycleService>(services =>
     services.GetRequiredService<EntityFrameworkAdministrationService>());
 builder.Services.AddHostedService<EventLifecycleWorker>();
+builder.Services.AddSingleton<PlacementPreviewPresence>();
 builder.Services.AddSingleton<LevelRealtimeService>();
+builder.Services.AddHostedService<PlacementPreviewCleanupWorker>();
+builder.Services.AddScoped<EditorCircuitPresence>();
+builder.Services.AddScoped<CircuitHandler>(services =>
+    services.GetRequiredService<EditorCircuitPresence>());
 builder.Services.AddSingleton<EventLifecycleNotifier>();
 builder.Services.AddGoogleAuthentication(builder.Configuration, builder.Environment);
 
