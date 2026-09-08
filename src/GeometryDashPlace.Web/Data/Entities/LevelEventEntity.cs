@@ -9,6 +9,8 @@ public sealed class LevelEventEntity
     public int Width { get; set; } = 1024;
     public int Height { get; set; } = 32;
     public int CooldownSeconds { get; set; } = 60;
+    public string BackgroundKey { get; set; } = "background-01";
+    public string GroundKey { get; set; } = "ground-01";
     public required string Status { get; set; }
     public long CurrentRevision { get; set; }
     public DateTimeOffset? StartsAt { get; set; }

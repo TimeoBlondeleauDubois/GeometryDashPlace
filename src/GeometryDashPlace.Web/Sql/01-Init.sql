@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS events
     width integer NOT NULL DEFAULT 1024,
     height integer NOT NULL DEFAULT 32,
     cooldown_seconds integer NOT NULL DEFAULT 60,
+    background_key varchar(64) NOT NULL DEFAULT 'background-01',
+    ground_key varchar(64) NOT NULL DEFAULT 'ground-01',
     status varchar(16) NOT NULL DEFAULT 'draft',
     current_revision bigint NOT NULL DEFAULT 0,
     starts_at timestamp with time zone,

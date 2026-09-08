@@ -31,7 +31,9 @@ public sealed class EntityFrameworkLevelEventRepository(
                 levelEvent.CurrentRevision,
                 levelEvent.Status,
                 levelEvent.StartsAt,
-                levelEvent.EndsAt))
+                levelEvent.EndsAt,
+                levelEvent.BackgroundKey,
+                levelEvent.GroundKey))
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -60,7 +62,9 @@ public sealed class EntityFrameworkLevelEventRepository(
                 levelEvent.CurrentRevision,
                 levelEvent.Status,
                 levelEvent.StartsAt,
-                levelEvent.EndsAt))
+                levelEvent.EndsAt,
+                levelEvent.BackgroundKey,
+                levelEvent.GroundKey))
             .ToListAsync(cancellationToken);
     }
 
@@ -85,7 +89,9 @@ public sealed class EntityFrameworkLevelEventRepository(
                 levelEvent.CurrentRevision,
                 levelEvent.Status,
                 levelEvent.StartsAt,
-                levelEvent.EndsAt))
+                levelEvent.EndsAt,
+                levelEvent.BackgroundKey,
+                levelEvent.GroundKey))
             .SingleOrDefaultAsync(cancellationToken);
     }
 }

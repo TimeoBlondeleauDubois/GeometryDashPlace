@@ -2,10 +2,12 @@
 @rendermode InteractiveServer
 @using System.Globalization
 @using GeometryDashPlace.Web.Components.Editor.State
+@using GeometryDashPlace.Web.Assets
 @using GeometryDashPlace.Web.Events
 @using GeometryDashPlace.Web.Persistence
 @inject ILevelEventRepository EventRepository
 @inject ILevelRepository LevelRepository
+@inject EnvironmentAssetCatalog EnvironmentAssets
 
 <PageTitle>@(_event is null ? "Event history" : $"{_event.Name} history") - Geometry Dash Place</PageTitle>
 
@@ -28,7 +30,10 @@ else
 {
     <CascadingValue Value="Editor">
         <main class="history-page">
-            <EditorViewport ReadOnly="true" />
+            <EditorViewport @key="_event.Id"
+                            ReadOnly="true"
+                            BackgroundTexturePath="@EnvironmentAssets.BackgroundPath(_event.BackgroundKey)"
+                            GroundTexturePath="@EnvironmentAssets.GroundPath(_event.GroundKey)" />
 
             <header class="history-header">
                 <a class="history-link-button" href="/events">
@@ -41,6 +46,13 @@ else
                 {
                     <a class="history-link-button history-live-button" href="/">
                         <GeometryDashText Text="LIVE" Height="14" />
+                    </a>
+                }
+                else
+                {
+                    <a class="history-link-button history-results-button"
+                       href="@($"/events/{_event.Slug}/results")">
+                        <GeometryDashText Text="RESULTS" Height="14" />
                     </a>
                 }
             </header>

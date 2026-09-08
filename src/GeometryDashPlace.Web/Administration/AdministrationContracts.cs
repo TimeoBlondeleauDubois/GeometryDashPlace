@@ -17,12 +17,31 @@ public sealed record AdminEventInput(
     string? Description,
     int CooldownSeconds,
     DateTimeOffset? StartsAt,
-    DateTimeOffset? EndsAt);
+    DateTimeOffset? EndsAt,
+    string BackgroundKey = "background-01",
+    string GroundKey = "ground-01");
 
 public sealed record AdminEventDetailsInput(
     string Slug,
     string Name,
     string? Description);
+
+public sealed record AdminPlacementHistory(
+    long Revision,
+    string Action,
+    int X,
+    int Y,
+    int? SourceX,
+    int? SourceY,
+    string? ObjectType,
+    Guid UserId,
+    string UserDisplayName,
+    DateTimeOffset CreatedAt);
+
+public sealed record AdminModerationResult(
+    Guid EventId,
+    long Revision,
+    int ChangedCells);
 
 public interface IAdministrationService
 {
@@ -40,6 +59,17 @@ public interface IAdministrationService
         AdminEventDetailsInput input,
         CancellationToken cancellationToken = default);
     Task SetAdminAsync(Guid actorUserId, Guid userId, bool isAdmin, CancellationToken cancellationToken = default);
+    Task SetBannedAsync(Guid actorUserId, Guid userId, bool isBanned, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<AdminPlacementHistory>> GetPlacementHistoryAsync(
+        Guid actorUserId,
+        Guid eventId,
+        int limit = 100,
+        CancellationToken cancellationToken = default);
+    Task<AdminModerationResult> RevertRevisionAsync(
+        Guid actorUserId,
+        Guid eventId,
+        long revision,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IEventLifecycleService

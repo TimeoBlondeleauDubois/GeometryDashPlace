@@ -14,11 +14,14 @@
         @onwheel="HandleWheel"
         @onwheel:preventDefault="true"></canvas>
 
-<FreeRotationOverlay />
-<ScaleOverlay />
-<LevelTimeline />
-<ZoomControls />
-<EditorStatus />
+@if (ShowChrome)
+{
+    <FreeRotationOverlay />
+    <ScaleOverlay />
+    <LevelTimeline />
+    <ZoomControls />
+    <EditorStatus />
+}
 
 @code {
     private ElementReference _canvas;
@@ -33,6 +36,15 @@
 
     [Parameter]
     public bool ReadOnly { get; set; }
+
+    [Parameter]
+    public bool ShowChrome { get; set; } = true;
+
+    [Parameter]
+    public string BackgroundTexturePath { get; set; } = EditorSession.BackgroundTexturePath;
+
+    [Parameter]
+    public string GroundTexturePath { get; set; } = EditorSession.GroundTexturePath;
 
     protected override void OnInitialized()
     {
@@ -50,8 +62,8 @@
         _module = await JavaScript.InvokeAsync<IJSObjectReference>("import", "/js/editor/editor-canvas.js");
         await _module.InvokeVoidAsync("initialize", _canvas, _reference, new
         {
-            backgroundTexturePath = EditorSession.BackgroundTexturePath,
-            groundTexturePath = EditorSession.GroundTexturePath,
+            backgroundTexturePath = BackgroundTexturePath,
+            groundTexturePath = GroundTexturePath,
             freeRotationHandlePath = EditorSession.FreeRotationHandlePath,
             definitions = Editor.Definitions.Select(definition => new
             {

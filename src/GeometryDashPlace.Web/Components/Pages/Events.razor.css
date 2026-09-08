@@ -1,14 +1,11 @@
 .events-page {
+    position: relative;
+    z-index: 1;
     box-sizing: border-box;
     min-height: 100vh;
     padding: clamp(22px, 5vh, 64px) clamp(18px, 5vw, 84px) 72px;
     overflow-x: hidden;
-    background:
-        linear-gradient(rgb(4 18 47 / 22%), rgb(1 8 25 / 58%)),
-        url('/assets/environment/backgrounds/classic-square.png') center / cover no-repeat,
-        linear-gradient(180deg, #154d9b 0%, #1975dc 55%, #1688f2 100%);
-    background-attachment: fixed;
-    background-blend-mode: normal, multiply, normal;
+    background: transparent;
     color: white;
     font-family: Arial, Helvetica, sans-serif;
     user-select: none;

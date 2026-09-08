@@ -9,6 +9,8 @@
 
 <PageTitle>Events - Geometry Dash Place</PageTitle>
 
+<RotatingPageBackground />
+
 <main class="events-page">
     <header class="events-header">
         <GeometryDashText Text="EVENTS" Height="42" Gold="true" />
@@ -52,7 +54,7 @@
         <section class="events-grid" aria-label="Past events">
             @foreach (var levelEvent in _pastEvents)
             {
-                <a class="event-card" href="@($"/events/{levelEvent.Slug}")">
+                <a class="event-card" href="@($"/events/{levelEvent.Slug}/results")">
                     <span class="event-card-title">
                         <GeometryDashText Text="@levelEvent.Name" Height="23" />
                     </span>
@@ -71,7 +73,7 @@
                         }
                     </span>
                     <span class="event-card-action">
-                        <GeometryDashText Text="VIEW HISTORY" Height="16" />
+                        <GeometryDashText Text="VIEW RESULTS" Height="16" />
                     </span>
                 </a>
             }

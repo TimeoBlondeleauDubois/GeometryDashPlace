@@ -15,6 +15,7 @@ services:
       - ./Sql/03-PlacementTransforms.sql:/docker-entrypoint-initdb.d/03-PlacementTransforms.sql:ro
       - ./Sql/04-PlacementMoves.sql:/docker-entrypoint-initdb.d/04-PlacementMoves.sql:ro
       - ./Sql/05-EventSnapshotSchedule.sql:/docker-entrypoint-initdb.d/05-EventSnapshotSchedule.sql:ro
+      - ./Sql/06-EventEnvironment.sql:/docker-entrypoint-initdb.d/06-EventEnvironment.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s

@@ -66,6 +66,11 @@
     box-shadow: 0 2px 0 #1d600e;
 }
 
+.history-results-button {
+    background: linear-gradient(180deg, #ffb52f, #dc7416);
+    box-shadow: 0 2px 0 #793708;
+}
+
 .history-link-button:hover {
     filter: brightness(1.12);
     transform: scale(1.04);

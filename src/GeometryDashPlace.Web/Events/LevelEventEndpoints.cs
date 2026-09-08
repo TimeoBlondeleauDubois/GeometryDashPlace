@@ -26,6 +26,15 @@ public static class LevelEventEndpoints
             return levelEvent is null ? Results.NotFound() : Results.Ok(levelEvent);
         });
 
+        endpoints.MapGet("/api/events/{slug}/results", async (
+            string slug,
+            IEventResultsRepository repository,
+            CancellationToken cancellationToken) =>
+        {
+            var results = await repository.GetBySlugAsync(slug, cancellationToken);
+            return results is null ? Results.NotFound() : Results.Ok(results);
+        });
+
         return endpoints;
     }
 }

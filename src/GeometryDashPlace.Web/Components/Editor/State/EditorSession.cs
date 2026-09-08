@@ -14,8 +14,8 @@ public sealed class EditorSession
     public const double MaximumZoom = 3;
     public const double MinimumObjectScale = 0.5;
     public const double MaximumObjectScale = 2;
-    public const string BackgroundTexturePath = "/assets/environment/backgrounds/classic-square.png";
-    public const string GroundTexturePath = "/assets/environment/grounds/classic-square.png";
+    public const string BackgroundTexturePath = "/assets/environment/backgrounds/background-01.png";
+    public const string GroundTexturePath = "/assets/environment/grounds/ground-01.png";
     public const string FreeRotationHandlePath = "/assets/ui/editor/transforms/free-rotation-handle.png";
 
     private const string ColorTriggerType = "color_trigger";
