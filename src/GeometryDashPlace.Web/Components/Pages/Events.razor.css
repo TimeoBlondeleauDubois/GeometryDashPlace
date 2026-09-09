@@ -45,6 +45,16 @@
     box-shadow: 0 4px 0 #793708;
 }
 
+.events-login-button {
+    background: linear-gradient(180deg, #31dce5, #1398b0);
+    box-shadow: 0 4px 0 #075364;
+}
+
+.events-logout-button {
+    background: linear-gradient(180deg, #ef6161, #b82c2c);
+    box-shadow: 0 4px 0 #681414;
+}
+
 .events-live-button:hover,
 .event-card:hover .event-card-action {
     filter: brightness(1.12);

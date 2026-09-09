@@ -1,5 +1,4 @@
 using GeometryDashPlace.Web.Auth;
-using GeometryDashPlace.Web.Administration;
 using GeometryDashPlace.Web.Components.Editor;
 using GeometryDashPlace.Web.Components.Editor.State;
 using GeometryDashPlace.Web.Events;
@@ -35,9 +34,6 @@ public partial class Home : ComponentBase, IDisposable
     private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
 
     [Inject]
-    private IAdministrationService Administration { get; set; } = default!;
-
-    [Inject]
     protected EnvironmentAssetCatalog EnvironmentAssets { get; set; } = default!;
 
     [Inject]
@@ -51,11 +47,8 @@ public partial class Home : ComponentBase, IDisposable
     protected EditorPersistenceActions Actions { get; }
     protected LevelEvent? CurrentEvent { get; private set; }
     protected bool IsAuthenticated { get; private set; }
-    protected bool IsAdmin { get; private set; }
     protected bool IsLoading { get; private set; } = true;
     protected bool IsSaving { get; private set; }
-    protected bool IsAccountMenuOpen { get; private set; }
-    protected string? UserDisplayName { get; private set; }
     protected string? StatusMessage { get; private set; }
     private Guid? _userId;
     private readonly CancellationTokenSource _lifetime = new();
@@ -84,8 +77,6 @@ public partial class Home : ComponentBase, IDisposable
             {
                 IsAuthenticated = true;
                 _userId = userId;
-                UserDisplayName = authenticationState.User.Identity?.Name;
-                IsAdmin = await Administration.IsAdminAsync(userId);
             }
 
             CurrentEvent = await EventRepository.GetCurrentAsync();
@@ -150,10 +141,6 @@ public partial class Home : ComponentBase, IDisposable
     {
         _ = InvokeAsync(StateHasChanged);
     }
-
-    protected void ToggleAccountMenu() => IsAccountMenuOpen = !IsAccountMenuOpen;
-
-    protected void CloseAccountMenu() => IsAccountMenuOpen = false;
 
     private async Task ConfirmPlacementAsync()
     {

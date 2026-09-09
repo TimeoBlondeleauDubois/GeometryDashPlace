@@ -1,0 +1,76 @@
+@inject NavigationManager Navigation
+
+<details class="site-menu">
+    <summary class="site-menu-toggle" aria-label="Toggle account and navigation menu">
+        <span></span>
+        <span></span>
+        <span></span>
+    </summary>
+    <aside class="site-account-panel" aria-label="Account and navigation">
+        <span class="site-menu-heading">
+            <GeometryDashText Text="MENU" Height="19" Gold="true" />
+        </span>
+        <a class="site-menu-action site-home-action" href="/">
+            <GeometryDashText Text="GEOMETRY DASH PLACE" Height="13" />
+        </a>
+        <a class="site-menu-action site-events-action" href="/events">
+            <GeometryDashText Text="EVENTS" Height="14" />
+        </a>
+        <AuthorizeView Policy="Admin">
+            <a class="site-menu-action site-admin-action" href="/admin">
+                <GeometryDashText Text="ADMIN" Height="14" />
+            </a>
+        </AuthorizeView>
+        <AuthorizeView Context="account">
+            <Authorized>
+                <span class="site-account-name" title="@account.User.Identity?.Name">
+                    @account.User.Identity?.Name
+                </span>
+                <a class="site-menu-action site-switch-account-action"
+                   href="@LoginUrl"
+                   data-enhance-nav="false">
+                    <GeometryDashText Text="CHANGE GOOGLE ACCOUNT" Height="12" />
+                </a>
+                <a class="site-menu-action"
+                   href="@LogoutUrl"
+                   data-enhance-nav="false">
+                    <GeometryDashText Text="LOG OUT" Height="14" />
+                </a>
+            </Authorized>
+            <NotAuthorized>
+                <span class="site-account-hint">Sign in to take part in an event.</span>
+                <a class="site-menu-action"
+                   href="@LoginUrl"
+                   data-enhance-nav="false">
+                    <GeometryDashText Text="SIGN IN WITH GOOGLE" Height="13" />
+                </a>
+            </NotAuthorized>
+        </AuthorizeView>
+    </aside>
+</details>
+
+@code {
+    private string LoginUrl =>
+        $"/login/google?returnUrl={Uri.EscapeDataString(CurrentReturnUrl)}";
+
+    private string LogoutUrl =>
+        $"/logout?returnUrl={Uri.EscapeDataString(CurrentReturnUrl)}";
+
+    private string CurrentReturnUrl
+    {
+        get
+        {
+            var relativeUrl = Navigation.ToBaseRelativePath(Navigation.Uri);
+            if (string.IsNullOrWhiteSpace(relativeUrl))
+            {
+                return "/";
+            }
+
+            var localUrl = $"/{relativeUrl}";
+            return localUrl.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)
+                ? "/events"
+                : localUrl;
+        }
+    }
+
+}
