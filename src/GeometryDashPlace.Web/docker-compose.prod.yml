@@ -1,0 +1,61 @@
+name: geometrydashplace
+
+services:
+  db:
+    image: postgres:17
+    container_name: geometrydashplace-db-prod
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:?DB_USERNAME is required}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:?DB_NAME is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./Sql/01-Init.sql:/docker-entrypoint-initdb.d/01-Init.sql:ro
+      - ./Sql/02-ObjectTypes.sql:/docker-entrypoint-initdb.d/02-ObjectTypes.sql:ro
+      - ./Sql/03-PlacementTransforms.sql:/docker-entrypoint-initdb.d/03-PlacementTransforms.sql:ro
+      - ./Sql/04-PlacementMoves.sql:/docker-entrypoint-initdb.d/04-PlacementMoves.sql:ro
+      - ./Sql/05-EventSnapshotSchedule.sql:/docker-entrypoint-initdb.d/05-EventSnapshotSchedule.sql:ro
+      - ./Sql/06-EventEnvironment.sql:/docker-entrypoint-initdb.d/06-EventEnvironment.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - backend
+    restart: unless-stopped
+
+  app:
+    image: ghcr.io/timeoblondeleaudubois/geometry-dash-place:latest
+    container_name: geometrydashplace-app-prod
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:?DB_USERNAME is required}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_NAME: ${DB_NAME:?DB_NAME is required}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:?GOOGLE_CLIENT_ID is required}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:?GOOGLE_CLIENT_SECRET is required}
+      AUTHENTICATION__GOOGLE__CALLBACKPATH: ${AUTHENTICATION__GOOGLE__CALLBACKPATH:-/signin-google}
+      SITE_OWNER_EMAILS: ${SITE_OWNER_EMAILS:?SITE_OWNER_EMAILS is required}
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:10000
+    volumes:
+      - data_protection_keys:/var/geometrydashplace/keys
+    ports:
+      - "8081:10000"
+    networks:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  data_protection_keys:
+
+networks:
+  backend:
+    driver: bridge

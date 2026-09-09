@@ -1,0 +1,178 @@
+.history-page,
+.history-state-page {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #0c1c35;
+    color: white;
+    font-family: Arial, Helvetica, sans-serif;
+    user-select: none;
+}
+
+.history-page {
+    --toolbar-height: clamp(112px, 15vh, 146px);
+}
+
+.history-state-page {
+    display: grid;
+    place-content: center;
+    gap: 22px;
+    text-align: center;
+}
+
+.history-header {
+    position: fixed;
+    z-index: 20;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    max-width: min(620px, 48vw);
+    align-items: center;
+    gap: 8px;
+    padding: 5px;
+    border: 2px solid white;
+    border-radius: 11px;
+    background: linear-gradient(180deg, rgb(28 59 96 / 96%), rgb(8 24 48 / 96%));
+    box-shadow: 0 4px 0 rgb(0 0 0 / 55%);
+}
+
+.history-event-name {
+    display: grid;
+    min-height: 30px;
+    min-width: 0;
+    padding: 0 11px;
+    overflow: hidden;
+    border-radius: 6px;
+    background: linear-gradient(180deg, #31dce5, #1398b0);
+    place-items: center;
+}
+
+.history-link-button {
+    display: grid;
+    min-height: 31px;
+    padding: 0 11px;
+    border: 2px solid white;
+    border-radius: 7px;
+    background: linear-gradient(180deg, #777, #424242);
+    box-shadow: 0 2px 0 #171717;
+    color: white;
+    text-decoration: none;
+    place-items: center;
+    transition: filter 80ms ease, transform 80ms ease;
+}
+
+.history-live-button {
+    background: linear-gradient(180deg, #91eb31, #4cbd12);
+    box-shadow: 0 2px 0 #1d600e;
+}
+
+.history-results-button {
+    background: linear-gradient(180deg, #ffb52f, #dc7416);
+    box-shadow: 0 2px 0 #793708;
+}
+
+.history-link-button:hover {
+    filter: brightness(1.12);
+    transform: scale(1.04);
+}
+
+.history-controls {
+    position: fixed;
+    z-index: 20;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    box-sizing: border-box;
+    height: var(--toolbar-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(12px, 2.5vw, 34px);
+    padding: 15px clamp(14px, 4vw, 52px);
+    border-top: 3px solid white;
+    background:
+        linear-gradient(rgb(6 16 31 / 82%), rgb(3 8 17 / 94%)),
+        url('/assets/ui/editor/toolbar/toolbar-background.png') center / cover;
+    box-shadow: 0 -5px 0 rgb(0 0 0 / 55%);
+}
+
+.history-revision-control {
+    display: grid;
+    width: min(680px, 72vw);
+    justify-items: center;
+    gap: 13px;
+}
+
+.history-revision-control input[type='range'] {
+    width: 100%;
+    height: 18px;
+    margin: 0;
+    accent-color: #7ee61d;
+    cursor: pointer;
+}
+
+.history-step {
+    width: clamp(46px, 5vw, 66px);
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    filter: drop-shadow(0 4px 1px rgb(0 0 0 / 60%));
+    transition: filter 80ms ease, transform 80ms ease;
+}
+
+.history-step img {
+    display: block;
+    width: 100%;
+}
+
+.history-step-next img {
+    transform: scaleX(-1);
+}
+
+.history-step:hover:not(:disabled) {
+    filter: brightness(1.15) drop-shadow(0 4px 1px rgb(0 0 0 / 60%));
+    transform: scale(1.08);
+}
+
+.history-step:disabled {
+    cursor: default;
+    filter: grayscale(1) brightness(0.55);
+    opacity: 0.65;
+}
+
+.history-error {
+    position: fixed;
+    z-index: 25;
+    top: 76px;
+    left: 50%;
+    max-width: min(90vw, 620px);
+    padding: 10px 16px;
+    border: 2px solid white;
+    border-radius: 9px;
+    background: rgb(126 27 27 / 94%);
+    box-shadow: 0 3px 0 rgb(0 0 0 / 45%);
+    font-weight: 800;
+    text-align: center;
+    transform: translateX(-50%);
+}
+
+@media (max-width: 760px) {
+    .history-page {
+        --toolbar-height: 112px;
+    }
+
+    .history-header {
+        top: 52px;
+        left: 7px;
+        max-width: calc(100vw - 14px);
+    }
+
+    .history-event-name {
+        display: none;
+    }
+
+    .history-revision-control {
+        width: min(66vw, 520px);
+    }
+}

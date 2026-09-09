@@ -1,0 +1,25 @@
+<div class="confirm-placement-area">
+    <button class="confirm-placement-button"
+            type="button"
+            aria-label="@(Editor.Mode == EditorMode.Delete ? "Confirm deletion" : "Confirm placement")"
+            title="@(Editor.Mode == EditorMode.Delete ? "Confirm deletion" : "Confirm placement")"
+            disabled="@(!Editor.CanValidate || !Actions.CanExecute())"
+            @onclick="ConfirmAsync">
+        <img src="/assets/ui/editor/confirmation/confirm-checkmark.png"
+             alt=""
+             aria-hidden="true" />
+    </button>
+    <small><GeometryDashText Text="VALIDATE" Height="17" /></small>
+</div>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+
+    [CascadingParameter]
+    public required EditorPersistenceActions Actions { get; set; }
+
+    private Task ConfirmAsync() => Editor.Mode == EditorMode.Delete
+        ? Actions.DeleteSelectedObjectAsync()
+        : Actions.ConfirmPlacementAsync();
+}

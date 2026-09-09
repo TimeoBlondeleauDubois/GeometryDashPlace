@@ -1,0 +1,126 @@
+@page "/events"
+@rendermode InteractiveServer
+@implements IDisposable
+@using System.Globalization
+@using GeometryDashPlace.Web.Events
+@inject ILevelEventRepository EventRepository
+@inject EventLifecycleNotifier EventLifecycle
+@inject NavigationManager Navigation
+
+<PageTitle>Events - Geometry Dash Place</PageTitle>
+
+<RotatingPageBackground />
+
+<main class="events-page">
+    <header class="events-header">
+        <GeometryDashText Text="EVENTS" Height="42" Gold="true" />
+        <div class="events-header-actions">
+            <AuthorizeView Policy="Admin">
+                <a class="events-live-button events-admin-button" href="/admin">
+                    <GeometryDashText Text="ADMIN" Height="17" />
+                </a>
+            </AuthorizeView>
+            @if (_currentEvent is not null)
+            {
+                <a class="events-live-button" href="/">
+                    <GeometryDashText Text="RETURN TO LIVE" Height="17" />
+                </a>
+            }
+        </div>
+    </header>
+
+    @if (_isLoading)
+    {
+        <section class="events-state">
+            <GeometryDashText Text="LOADING" Height="28" />
+        </section>
+    }
+    else if (_error is not null)
+    {
+        <section class="events-state">
+            <GeometryDashText Text="UNABLE TO LOAD EVENTS" Height="25" />
+            <p>@_error</p>
+        </section>
+    }
+    else if (_pastEvents.Count == 0)
+    {
+        <section class="events-state">
+            <GeometryDashText Text="NO PAST EVENTS" Height="28" />
+            <p>Completed events will appear here.</p>
+        </section>
+    }
+    else
+    {
+        <section class="events-grid" aria-label="Past events">
+            @foreach (var levelEvent in _pastEvents)
+            {
+                <a class="event-card" href="@($"/events/{levelEvent.Slug}/results")">
+                    <span class="event-card-title">
+                        <GeometryDashText Text="@levelEvent.Name" Height="23" />
+                    </span>
+                    @if (!string.IsNullOrWhiteSpace(levelEvent.Description))
+                    {
+                        <span class="event-card-description">@levelEvent.Description</span>
+                    }
+                    <span class="event-card-details">
+                        <span>@levelEvent.Revision revisions</span>
+                        <span>@levelEvent.Width x @levelEvent.Height</span>
+                        @if (levelEvent.EndsAt is { } endsAt)
+                        {
+                            <time datetime="@endsAt.ToString("O")">
+                                @endsAt.LocalDateTime.ToString("dd MMM yyyy", CultureInfo.InvariantCulture)
+                            </time>
+                        }
+                    </span>
+                    <span class="event-card-action">
+                        <GeometryDashText Text="VIEW RESULTS" Height="16" />
+                    </span>
+                </a>
+            }
+        </section>
+    }
+</main>
+
+@code {
+    private IReadOnlyList<LevelEvent> _pastEvents = [];
+    private LevelEvent? _currentEvent;
+    private bool _isLoading = true;
+    private string? _error;
+    private IDisposable? _eventLifecycleSubscription;
+    private bool _waitingForEvent;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _currentEvent = await EventRepository.GetCurrentAsync();
+            _pastEvents = await EventRepository.GetPastAsync();
+            _waitingForEvent = _currentEvent is null;
+            _eventLifecycleSubscription = EventLifecycle.Subscribe(HandleEventLifecycleChangedAsync);
+        }
+        catch
+        {
+            _error = "The event archive is temporarily unavailable.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    public void Dispose() => _eventLifecycleSubscription?.Dispose();
+
+    private Task HandleEventLifecycleChangedAsync() => InvokeAsync(async () =>
+    {
+        if (!_waitingForEvent)
+        {
+            return;
+        }
+
+        var current = await EventRepository.GetCurrentAsync();
+        if (current is not null)
+        {
+            Navigation.NavigateTo("/", forceLoad: true, replace: true);
+        }
+    });
+}

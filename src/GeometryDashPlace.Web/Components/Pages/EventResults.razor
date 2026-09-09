@@ -1,0 +1,205 @@
+@page "/events/{Slug}/results"
+@rendermode InteractiveServer
+@using System.Globalization
+@using GeometryDashPlace.Web.Components.Editor.State
+@using GeometryDashPlace.Web.Assets
+@using GeometryDashPlace.Web.Events
+@using GeometryDashPlace.Web.Persistence
+@inject IEventResultsRepository ResultsRepository
+@inject ILevelRepository LevelRepository
+@inject EnvironmentAssetCatalog EnvironmentAssets
+
+<PageTitle>@(_results is null ? "Event results" : $"{_results.Event.Name} results") - Geometry Dash Place</PageTitle>
+
+<RotatingPageBackground />
+
+<main class="results-page">
+    <header class="results-header">
+        <div>
+            <GeometryDashText Text="EVENT RESULTS" Height="39" Gold="true" />
+            @if (_results is not null)
+            {
+                <div class="results-event-name">
+                    <GeometryDashText Text="@_results.Event.Name" Height="22" />
+                </div>
+            }
+        </div>
+        <nav class="results-navigation" aria-label="Event navigation">
+            <a class="results-button results-button-blue" href="/events">
+                <GeometryDashText Text="EVENTS" Height="15" />
+            </a>
+            @if (_results is not null)
+            {
+                <a class="results-button" href="@($"/events/{_results.Event.Slug}")">
+                    <GeometryDashText Text="VIEW HISTORY" Height="15" />
+                </a>
+            }
+        </nav>
+    </header>
+
+    @if (_isLoading)
+    {
+        <section class="results-state">
+            <GeometryDashText Text="LOADING RESULTS" Height="28" />
+        </section>
+    }
+    else if (_results is null)
+    {
+        <section class="results-state">
+            <GeometryDashText Text="RESULTS NOT FOUND" Height="28" />
+            <p>@(_error ?? "This event is not completed yet.")</p>
+        </section>
+    }
+    else
+    {
+        <section class="results-summary" aria-label="Event summary">
+            <article class="result-stat">
+                <span>TOTAL CHANGES</span>
+                <strong>@_results.Actions.Total</strong>
+            </article>
+            <article class="result-stat">
+                <span>FINAL OBJECTS</span>
+                <strong>@_results.FinalObjectCount</strong>
+            </article>
+            <article class="result-stat">
+                <span>CONTRIBUTORS</span>
+                <strong>@_results.Contributors.Count</strong>
+            </article>
+            <article class="result-stat">
+                <span>FINAL REVISION</span>
+                <strong>@_results.Event.Revision</strong>
+            </article>
+        </section>
+
+        <section class="results-panel final-level-panel">
+            <div class="results-panel-heading">
+                <GeometryDashText Text="FINAL LEVEL" Height="24" />
+                <span>Drag or zoom to explore</span>
+            </div>
+            <CascadingValue Value="Editor" IsFixed="true">
+                <div class="results-level-preview">
+                    <EditorViewport @key="_results.Event.Id"
+                                    ReadOnly="true"
+                                    ShowChrome="false"
+                                    BackgroundTexturePath="@EnvironmentAssets.BackgroundPath(_results.Event.BackgroundKey)"
+                                    GroundTexturePath="@EnvironmentAssets.GroundPath(_results.Event.GroundKey)" />
+                </div>
+            </CascadingValue>
+        </section>
+
+        <section class="results-panel">
+            <div class="results-panel-heading">
+                <GeometryDashText Text="ACTIVITY" Height="24" />
+                @if (_results.FirstContributionAt is { } first &&
+                     _results.LastContributionAt is { } last)
+                {
+                    <span>@FormatDate(first) - @FormatDate(last)</span>
+                }
+            </div>
+            <div class="activity-grid">
+                <ActivityStat Label="PLACEMENTS" Value="@_results.Actions.Placements" />
+                <ActivityStat Label="REPLACEMENTS" Value="@_results.Actions.Replacements" />
+                <ActivityStat Label="MOVES" Value="@(_results.Actions.Moves + _results.Actions.MoveReplacements)" />
+                <ActivityStat Label="DELETIONS" Value="@_results.Actions.Deletions" />
+            </div>
+        </section>
+
+        <section class="results-panel contributors-panel">
+            <div class="results-panel-heading">
+                <GeometryDashText Text="CONTRIBUTORS" Height="24" />
+            </div>
+            @if (_results.Contributors.Count == 0)
+            {
+                <p class="empty-results">No contribution was recorded.</p>
+            }
+            else
+            {
+                <div class="contributors-list">
+                    @for (var index = 0; index < _results.Contributors.Count; index++)
+                    {
+                        var contributor = _results.Contributors[index];
+                        <article class="contributor-row">
+                            <strong class="contributor-rank">#@(index + 1)</strong>
+                            <div class="contributor-name">
+                                <strong>@contributor.DisplayName</strong>
+                                <span>Last contribution @FormatDate(contributor.LastContributionAt)</span>
+                            </div>
+                            <span class="contributor-total">@contributor.Actions.Total changes</span>
+                            <span>@contributor.Actions.Placements placed</span>
+                            <span>@(contributor.Actions.Moves + contributor.Actions.MoveReplacements) moved</span>
+                            <span>@contributor.Actions.Deletions deleted</span>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+    }
+</main>
+
+@code {
+    private readonly EditorSession Editor = new(EditorObjectCatalog.All);
+    private EventResultSummary? _results;
+    private bool _isLoading = true;
+    private string? _error;
+
+    [Parameter]
+    public string Slug { get; set; } = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        _error = null;
+        try
+        {
+            _results = await ResultsRepository.GetBySlugAsync(Slug);
+            if (_results is null)
+            {
+                return;
+            }
+
+            if (_results.Event.Width != EditorSession.ColumnCount ||
+                _results.Event.Height != EditorSession.RowCount)
+            {
+                _error = "This event uses dimensions that are not supported by the viewer.";
+                _results = null;
+                return;
+            }
+
+            var finalState = await LevelRepository.LoadRevisionAsync(
+                _results.Event.Id,
+                _results.Event.Revision);
+            Editor.LoadConfirmedObjects(finalState.Cells.Select(ToEditorObject));
+        }
+        catch (LevelPersistenceException exception)
+        {
+            _error = exception.Message;
+            _results = null;
+        }
+        catch
+        {
+            _error = "The event results are temporarily unavailable.";
+            _results = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string FormatDate(DateTimeOffset value) =>
+        value.LocalDateTime.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+
+    private static EditorObjectInstance ToEditorObject(LevelCell cell) => new()
+    {
+        Type = cell.Type,
+        X = cell.X,
+        Y = cell.Y,
+        Rotation = cell.Rotation,
+        ScaleX = cell.ScaleX,
+        ScaleY = cell.ScaleY,
+        Red = cell.Red ?? 255,
+        Green = cell.Green ?? 255,
+        Blue = cell.Blue ?? 255,
+        Duration = cell.Duration ?? 0.2
+    };
+}

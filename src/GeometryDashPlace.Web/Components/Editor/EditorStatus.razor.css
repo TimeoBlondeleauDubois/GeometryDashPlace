@@ -1,0 +1,36 @@
+.editor-status {
+    position: absolute;
+    z-index: 5;
+    top: 16px;
+    right: 18px;
+    display: grid;
+    min-width: 112px;
+    padding: 8px 12px;
+    border: 2px solid rgb(255 255 255 / 55%);
+    border-radius: 9px;
+    background: rgb(5 16 35 / 72%);
+    box-shadow: 0 3px 0 rgb(0 0 0 / 35%);
+    text-align: right;
+    text-shadow: 1px 2px 0 #000;
+    pointer-events: none;
+}
+
+.editor-status strong {
+    font-size: 0.95rem;
+}
+
+.editor-status span {
+    color: #8fd8ff;
+    font-size: 0.78rem;
+}
+
+@media (max-width: 760px) {
+    .editor-status {
+        top: 10px;
+        right: 10px;
+    }
+
+    .editor-status span:last-child {
+        display: none;
+    }
+}

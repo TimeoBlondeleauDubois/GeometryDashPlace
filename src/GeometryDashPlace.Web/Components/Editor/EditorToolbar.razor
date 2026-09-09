@@ -1,0 +1,22 @@
+<section class="object-toolbar" aria-label="Objets à placer">
+    <EditorModeTabs />
+
+    <header class="palette-heading">
+        <strong><GeometryDashText Text="@Editor.SelectedObjectName" Height="23" /></strong>
+    </header>
+
+    <ObjectPalette />
+    <MovementControls />
+    <ColorTriggerSettings />
+    <EditObjectButton />
+    <PlacementConfirmation />
+
+    <div class="palette-pages" hidden="@(Editor.Mode != EditorMode.Build)" aria-live="polite">
+        <GeometryDashText Text="@Editor.PalettePageText" Height="16" />
+    </div>
+</section>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}

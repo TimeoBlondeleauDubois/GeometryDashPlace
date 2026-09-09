@@ -1,0 +1,30 @@
+.rotating-background-layer,
+.rotating-background-tint {
+    position: fixed;
+    z-index: 0;
+    inset: 0;
+    pointer-events: none;
+}
+
+.rotating-background-layer {
+    background-position: center;
+    background-size: cover;
+    filter: brightness(0.9) saturate(1.08);
+    opacity: 0;
+    transform: scale(1.035);
+    transition: opacity 650ms ease, transform 1200ms ease;
+    will-change: opacity, transform;
+}
+
+.rotating-background-layer.is-visible {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.rotating-background-tint {
+    background: linear-gradient(
+        180deg,
+        rgb(2 12 29 / 45%) 0%,
+        rgb(2 12 29 / 58%) 48%,
+        rgb(1 8 20 / 72%) 100%);
+}

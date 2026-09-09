@@ -1,0 +1,80 @@
+<section class="scale-overlay"
+         hidden="@(!Editor.ScaleModeEnabled || !Editor.CanScale)"
+         style="@ScaleStyle"
+         aria-label="Object scale controls">
+    <div class="scale-axis">
+        <div class="scale-heading">
+            <label class="scale-label" for="scale-y">
+                <span class="screen-reader-only">Scale Y</span>
+                <GeometryDashText Text="SCALE Y:" Height="52" />
+            </label>
+            <div class="scale-value-editor">
+                <input id="scale-y"
+                       class="scale-value"
+                       type="number"
+                       min="@EditorSession.MinimumObjectScale"
+                       max="@EditorSession.MaximumObjectScale"
+                       step="0.001"
+                       value="@Editor.ScaleYValueText"
+                       aria-label="Y scale"
+                       @oninput="HandleScaleY" />
+                <span class="scale-value-display">
+                    <GeometryDashText Text="@Editor.ScaleYValueText" Height="38" />
+                </span>
+            </div>
+        </div>
+        <input class="scale-slider"
+               type="range"
+               min="@EditorSession.MinimumObjectScale"
+               max="@EditorSession.MaximumObjectScale"
+               step="0.001"
+               value="@Editor.ScaleYValueText"
+               aria-label="Y scale slider"
+               @oninput="HandleScaleY" />
+    </div>
+
+    <div class="scale-axis">
+        <div class="scale-heading">
+            <label class="scale-label" for="scale-x">
+                <span class="screen-reader-only">Scale X</span>
+                <GeometryDashText Text="SCALE X:" Height="52" />
+            </label>
+            <div class="scale-value-editor">
+                <input id="scale-x"
+                       class="scale-value"
+                       type="number"
+                       min="@EditorSession.MinimumObjectScale"
+                       max="@EditorSession.MaximumObjectScale"
+                       step="0.001"
+                       value="@Editor.ScaleXValueText"
+                       aria-label="X scale"
+                       @oninput="HandleScaleX" />
+                <span class="scale-value-display">
+                    <GeometryDashText Text="@Editor.ScaleXValueText" Height="38" />
+                </span>
+            </div>
+        </div>
+        <input class="scale-slider"
+               type="range"
+               min="@EditorSession.MinimumObjectScale"
+               max="@EditorSession.MaximumObjectScale"
+               step="0.001"
+               value="@Editor.ScaleXValueText"
+               aria-label="X scale slider"
+               @oninput="HandleScaleX" />
+    </div>
+</section>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+
+    private string ScaleStyle => FormattableString.Invariant(
+        $"--scale-thumb-size: {Math.Clamp(Editor.CellSize * 3, 52, 116):0.###}px;");
+
+    private void HandleScaleX(ChangeEventArgs eventArgs) =>
+        Editor.SetPendingScaleX(eventArgs.Value?.ToString());
+
+    private void HandleScaleY(ChangeEventArgs eventArgs) =>
+        Editor.SetPendingScaleY(eventArgs.Value?.ToString());
+}
