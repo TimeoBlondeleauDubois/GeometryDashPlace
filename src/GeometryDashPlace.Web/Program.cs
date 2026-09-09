@@ -8,6 +8,8 @@ using GeometryDashPlace.Web.Assets;
 using GeometryDashPlace.Web.Persistence;
 using GeometryDashPlace.Web.Realtime;
 using Microsoft.AspNetCore.Components.Server.Circuits;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -57,7 +59,23 @@ builder.Services.AddScoped<CircuitHandler>(services =>
 builder.Services.AddSingleton<EventLifecycleNotifier>();
 builder.Services.AddGoogleAuthentication(builder.Configuration, builder.Environment);
 
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Services.AddDataProtection()
+        .PersistKeysToFileSystem(new DirectoryInfo("/var/geometrydashplace/keys"))
+        .SetApplicationName("GeometryDashPlace.Web");
+}
+
 var app = builder.Build();
+
+var forwardedHeaders = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedHost |
+                       ForwardedHeaders.XForwardedProto
+};
+forwardedHeaders.KnownIPNetworks.Clear();
+forwardedHeaders.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeaders);
 
 if (!app.Environment.IsDevelopment())
 {

@@ -1,0 +1,105 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: geometrydashplace-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/timeoblondeleaudubois/geometry-dash-place
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push application image
+        uses: docker/build-push-action@v6
+        with:
+          context: src/GeometryDashPlace.Web
+          file: src/GeometryDashPlace.Web/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Copy deployment files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          source: "src/GeometryDashPlace.Web/docker-compose.prod.yml,src/GeometryDashPlace.Web/Sql/*"
+          target: "~/geometrydashplace"
+          strip_components: 2
+
+      - name: Deploy application
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -eu
+            cd ~/geometrydashplace
+
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d db
+
+            attempts=0
+            until docker compose -f docker-compose.prod.yml exec -T db sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"'; do
+              attempts=$((attempts + 1))
+              if [ "$attempts" -ge 30 ]; then
+                echo "PostgreSQL did not become ready in time."
+                exit 1
+              fi
+              sleep 2
+            done
+
+            for script in \
+              Sql/03-PlacementTransforms.sql \
+              Sql/04-PlacementMoves.sql \
+              Sql/05-EventSnapshotSchedule.sql \
+              Sql/06-EventEnvironment.sql \
+              Sql/02-ObjectTypes.sql; do
+              echo "Applying $script"
+              docker compose -f docker-compose.prod.yml exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$script"
+            done
+
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker image prune -f
