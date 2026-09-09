@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace GeometryDashPlace.Web.Auth;
 
@@ -106,6 +107,15 @@ public static class GoogleAuthExtensions
                 options.Events = new OAuthEvents
                 {
                     OnCreatingTicket = CreateGoogleTicketAsync,
+                    OnRedirectToAuthorizationEndpoint = context =>
+                    {
+                        var accountSelectionUrl = QueryHelpers.AddQueryString(
+                            context.RedirectUri,
+                            "prompt",
+                            "select_account");
+                        context.Response.Redirect(accountSelectionUrl);
+                        return Task.CompletedTask;
+                    },
                     OnRemoteFailure = context =>
                     {
                         context.HandleResponse();
@@ -132,10 +142,10 @@ public static class GoogleAuthExtensions
                 new AuthenticationProperties { RedirectUri = redirectUri });
         }).AllowAnonymous();
 
-        endpoints.MapGet("/logout", async (HttpContext context) =>
+        endpoints.MapGet("/logout", async (HttpContext context, string? returnUrl) =>
         {
             await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
-            context.Response.Redirect("/");
+            context.Response.Redirect(IsLocalReturnUrl(returnUrl) ? returnUrl! : "/events");
         }).RequireAuthorization();
 
         return endpoints;
