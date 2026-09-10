@@ -123,8 +123,8 @@ public sealed partial class EntityFrameworkAdministrationService(
             Slug = normalized.Slug,
             Name = normalized.Name,
             Description = normalized.Description,
-            Width = 1024,
-            Height = 32,
+            Width = normalized.Width,
+            Height = normalized.Height,
             CooldownSeconds = normalized.CooldownSeconds,
             BackgroundKey = normalized.BackgroundKey,
             GroundKey = normalized.GroundKey,
@@ -172,6 +172,14 @@ public sealed partial class EntityFrameworkAdministrationService(
             throw Error(
                 "event_start_locked",
                 "The start date cannot be changed after the event has started.",
+                StatusCodes.Status409Conflict);
+        }
+
+        if (normalized.Width != entity.Width || normalized.Height != entity.Height)
+        {
+            throw Error(
+                "event_dimensions_locked",
+                "The grid dimensions cannot be changed after the event is created.",
                 StatusCodes.Status409Conflict);
         }
 
@@ -460,6 +468,15 @@ public sealed partial class EntityFrameworkAdministrationService(
         {
             throw Error(
                 "invalid_cooldown", "The cooldown must be between 0 and 86400 seconds.",
+                StatusCodes.Status400BadRequest);
+        }
+
+        if (normalized.Width < EventGridLimits.MinimumWidth ||
+            normalized.Height < EventGridLimits.MinimumHeight)
+        {
+            throw Error(
+                "invalid_dimensions",
+                "The grid width and height must contain at least one cell.",
                 StatusCodes.Status400BadRequest);
         }
 

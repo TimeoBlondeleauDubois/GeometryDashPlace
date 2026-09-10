@@ -200,6 +200,29 @@ public sealed class EditorSessionTests
         Assert.Equal("block", rendered.CatalogType);
     }
 
+    [Fact]
+    public void CustomGridSize_DefinesTheEditableBounds()
+    {
+        var editor = new EditorSession(
+            EditorObjectCatalog.All,
+            columnCount: 12,
+            rowCount: 6);
+        editor.Resize(1080, 1080);
+        editor.SelectCatalogObject("block");
+
+        ClickCell(editor, 11, 5);
+
+        Assert.Equal(12, editor.ColumnCount);
+        Assert.Equal(6, editor.RowCount);
+        Assert.Equal(new EditorCell(11, 5), editor.SelectedCell);
+
+        editor.ConfirmPlacement();
+        ClickCell(editor, 12, 5);
+
+        Assert.Null(editor.PendingObject);
+        Assert.Equal(1, editor.ObjectCount);
+    }
+
     private static EditorSession CreateEditor()
     {
         var editor = new EditorSession(EditorObjectCatalog.All);

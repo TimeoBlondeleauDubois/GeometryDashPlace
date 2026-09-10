@@ -19,7 +19,17 @@ public sealed record AdminEventInput(
     DateTimeOffset? StartsAt,
     DateTimeOffset? EndsAt,
     string BackgroundKey = "background-01",
-    string GroundKey = "ground-01");
+    string GroundKey = "ground-01",
+    int Width = EventGridLimits.DefaultWidth,
+    int Height = EventGridLimits.DefaultHeight);
+
+public static class EventGridLimits
+{
+    public const int DefaultWidth = 1024;
+    public const int DefaultHeight = 32;
+    public const int MinimumWidth = 1;
+    public const int MinimumHeight = 1;
+}
 
 public sealed record AdminEventDetailsInput(
     string Slug,

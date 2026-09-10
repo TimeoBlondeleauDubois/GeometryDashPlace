@@ -111,6 +111,22 @@
                                @onchange="UpdateEndsAt" />
                     </label>
                     <label>
+                        <span>GRID WIDTH (CELLS)</span>
+                        <input type="number"
+                               min="@EventGridLimits.MinimumWidth"
+                               required
+                               disabled="@IsGridSizeLocked"
+                               @bind="_form.Width" />
+                    </label>
+                    <label>
+                        <span>GRID HEIGHT (CELLS)</span>
+                        <input type="number"
+                               min="@EventGridLimits.MinimumHeight"
+                               required
+                               disabled="@IsGridSizeLocked"
+                               @bind="_form.Height" />
+                    </label>
+                    <label>
                         <span>COOLDOWN (SECONDS)</span>
                         <input type="number"
                                min="0"
@@ -582,6 +598,8 @@
         IsSelectedEventCompleted ||
         _selectedEvent?.StartsAt <= DateTimeOffset.UtcNow;
 
+    private bool IsGridSizeLocked => _selectedEventId is not null;
+
     private static string ScheduleLabel(LevelEvent levelEvent) =>
         $"{FormatShortDate(levelEvent.StartsAt)} - {FormatShortDate(levelEvent.EndsAt)}";
 
@@ -642,6 +660,8 @@
         public string StartsAt { get; set; } = string.Empty;
         public string EndsAt { get; set; } = string.Empty;
         public int CooldownSeconds { get; set; } = 60;
+        public int Width { get; set; } = EventGridLimits.DefaultWidth;
+        public int Height { get; set; } = EventGridLimits.DefaultHeight;
         public string BackgroundKey { get; set; } = EnvironmentAssetCatalog.DefaultBackgroundKey;
         public string GroundKey { get; set; } = EnvironmentAssetCatalog.DefaultGroundKey;
         private DateTimeOffset? OriginalStartsAt { get; set; }
@@ -652,6 +672,8 @@
             Slug = string.Empty;
             Description = string.Empty;
             CooldownSeconds = 60;
+            Width = EventGridLimits.DefaultWidth;
+            Height = EventGridLimits.DefaultHeight;
             BackgroundKey = EnvironmentAssetCatalog.DefaultBackgroundKey;
             GroundKey = EnvironmentAssetCatalog.DefaultGroundKey;
             var now = DateTime.UtcNow;
@@ -669,6 +691,8 @@
             StartsAt = FormatDate(levelEvent.StartsAt);
             EndsAt = FormatDate(levelEvent.EndsAt);
             CooldownSeconds = levelEvent.CooldownSeconds;
+            Width = levelEvent.Width;
+            Height = levelEvent.Height;
             BackgroundKey = levelEvent.BackgroundKey;
             GroundKey = levelEvent.GroundKey;
             OriginalStartsAt = levelEvent.StartsAt;
@@ -682,7 +706,9 @@
             preserveStartDate ? OriginalStartsAt : ToUtc(StartsAt),
             ToUtc(EndsAt),
             BackgroundKey,
-            GroundKey);
+            GroundKey,
+            Width,
+            Height);
 
         public AdminEventDetailsInput ToDetailsInput() => new(
             Slug,

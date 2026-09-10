@@ -42,7 +42,9 @@ public sealed class AdministrationTests(PostgreSqlIntegrationFixture database)
             startsAt,
             endsAt,
             "background-02",
-            "ground-02");
+            "ground-02",
+            Width: 192,
+            Height: 24);
 
         await administration.SetAdminAsync(
             scenario.UserId,
@@ -51,6 +53,8 @@ public sealed class AdministrationTests(PostgreSqlIntegrationFixture database)
         var created = await administration.CreateEventAsync(scenario.UserId, input);
 
         Assert.Equal("open", created.Status);
+        Assert.Equal(192, created.Width);
+        Assert.Equal(24, created.Height);
         Assert.Equal("background-02", created.BackgroundKey);
         Assert.Equal("ground-02", created.GroundKey);
         await using (var context = database.CreateDbContext())
@@ -70,6 +74,13 @@ public sealed class AdministrationTests(PostgreSqlIntegrationFixture database)
                     Name = "Overlapping event"
                 }));
         Assert.Equal("event_schedule_overlap", overlap.Code);
+
+        var dimensionsLocked = await Assert.ThrowsAsync<AdministrationException>(() =>
+            administration.UpdateEventAsync(
+                scenario.UserId,
+                created.Id,
+                input with { Width = 193 }));
+        Assert.Equal("event_dimensions_locked", dimensionsLocked.Code);
 
         var completedInput = input with
         {

@@ -4,8 +4,8 @@ namespace GeometryDashPlace.Web.Components.Editor.State;
 
 public sealed class EditorSession
 {
-    public const int ColumnCount = 1024;
-    public const int RowCount = 32;
+    public const int DefaultColumnCount = 1024;
+    public const int DefaultRowCount = 32;
     public const int GroundTileCells = 4;
     public const int ObjectTextureUnit = 120;
     public const int PalettePageSize = 12;
@@ -33,10 +33,16 @@ public sealed class EditorSession
     private bool _isFreeRotating;
     private EditorMode _confirmationReturnMode = EditorMode.Build;
 
-    public EditorSession(IReadOnlyList<EditorObjectDefinition> definitions)
+    public EditorSession(
+        IReadOnlyList<EditorObjectDefinition> definitions,
+        int columnCount = DefaultColumnCount,
+        int rowCount = DefaultRowCount)
     {
+        ValidateGridSize(columnCount, rowCount);
         _definitions = definitions;
         _definitionByType = definitions.ToDictionary(definition => definition.Type);
+        ColumnCount = columnCount;
+        RowCount = rowCount;
     }
 
     public event Action? Changed;
@@ -44,6 +50,8 @@ public sealed class EditorSession
     public EditorMode Mode { get; private set; } = EditorMode.Build;
     public double Width { get; private set; }
     public double Height { get; private set; }
+    public int ColumnCount { get; private set; }
+    public int RowCount { get; private set; }
     public double BaseCellSize { get; private set; } = 30;
     public double Zoom { get; private set; } = 1;
     public double OffsetX { get; private set; }
@@ -122,6 +130,32 @@ public sealed class EditorSession
         BaseCellSize = Height / (RowCount + GroundTileCells);
         ClampCamera();
         NotifyChanged();
+    }
+
+    public void SetGridSize(int columnCount, int rowCount)
+    {
+        ValidateGridSize(columnCount, rowCount);
+        if (columnCount == ColumnCount && rowCount == RowCount)
+        {
+            return;
+        }
+
+        ColumnCount = columnCount;
+        RowCount = rowCount;
+        HoverCell = null;
+        SelectedCell = null;
+        ClearPendingSelection(false);
+        _objects.Clear();
+        _remotePreviews.Clear();
+        BaseCellSize = Height > 0 ? Height / (RowCount + GroundTileCells) : 30;
+        ClampCamera();
+        NotifyChanged();
+    }
+
+    private static void ValidateGridSize(int columnCount, int rowCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(columnCount);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(rowCount);
     }
 
     public void SetMode(EditorMode mode)
