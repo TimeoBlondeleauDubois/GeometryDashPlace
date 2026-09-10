@@ -86,13 +86,7 @@ public partial class Home : ComponentBase, IDisposable
                 return;
             }
 
-            if (CurrentEvent.Width != EditorSession.ColumnCount ||
-                CurrentEvent.Height != EditorSession.RowCount)
-            {
-                StatusMessage = "The active event dimensions are not supported by this editor.";
-                CurrentEvent = null;
-                return;
-            }
+            Editor.SetGridSize(CurrentEvent.Width, CurrentEvent.Height);
 
             _levelSubscription = Realtime.Subscribe(
                 CurrentEvent.Id, HandleLevelChangedAsync);

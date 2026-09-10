@@ -4,6 +4,7 @@ using GeometryDashPlace.Web.Auth;
 using GeometryDashPlace.Web.Components;
 using GeometryDashPlace.Web.Data;
 using GeometryDashPlace.Web.Events;
+using GeometryDashPlace.Web.Exporting;
 using GeometryDashPlace.Web.Assets;
 using GeometryDashPlace.Web.Persistence;
 using GeometryDashPlace.Web.Realtime;
@@ -44,6 +45,8 @@ builder.Services.AddDbContextFactory<GeometryDashPlaceDbContext>(
 builder.Services.AddScoped<ILevelRepository, EntityFrameworkLevelRepository>();
 builder.Services.AddScoped<ILevelEventRepository, EntityFrameworkLevelEventRepository>();
 builder.Services.AddScoped<IEventResultsRepository, EntityFrameworkEventResultsRepository>();
+builder.Services.AddSingleton<IGildPlaceConverter, GildPlaceConverter>();
+builder.Services.AddScoped<ILevelExportService, EntityFrameworkLevelExportService>();
 builder.Services.AddScoped<EntityFrameworkAdministrationService>();
 builder.Services.AddScoped<IAdministrationService>(services =>
     services.GetRequiredService<EntityFrameworkAdministrationService>());
@@ -96,6 +99,7 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapGoogleAuthEndpoints();
 app.MapLevelEventEndpoints();
+app.MapLevelExportEndpoints();
 app.MapLevelEndpoints();
 app.MapHub<LevelHub>("/hubs/level");
 app.MapRazorComponents<App>()

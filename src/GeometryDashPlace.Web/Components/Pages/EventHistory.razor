@@ -124,12 +124,7 @@ else
                 return;
             }
 
-            if (_event.Width != EditorSession.ColumnCount ||
-                _event.Height != EditorSession.RowCount)
-            {
-                _error = "This event uses dimensions that are not supported by the viewer.";
-                return;
-            }
+            Editor.SetGridSize(_event.Width, _event.Height);
 
             var current = await EventRepository.GetCurrentAsync();
             _isCurrentEvent = current?.Id == _event.Id;
