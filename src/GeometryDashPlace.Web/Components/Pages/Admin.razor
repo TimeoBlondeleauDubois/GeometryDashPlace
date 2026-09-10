@@ -73,9 +73,17 @@
                     <GeometryDashText Text="@(_selectedEventId is null ? "CREATE EVENT" : "EDIT EVENT")" Height="24" />
                     @if (_selectedEvent is not null)
                     {
-                        <span class="event-status @(IsCompleted(_selectedEvent) ? "event-status-closed" : "event-status-open")">
-                            @(IsCompleted(_selectedEvent) ? "COMPLETED" : "ONGOING")
-                        </span>
+                        <div class="panel-heading-actions">
+                            <span class="event-status @(IsCompleted(_selectedEvent) ? "event-status-closed" : "event-status-open")">
+                                @(IsCompleted(_selectedEvent) ? "COMPLETED" : "ONGOING")
+                            </span>
+                            <a class="gd-button gd-button-blue compact-button"
+                               href="@($"/api/admin/events/{_selectedEvent.Id}/export.gmd")"
+                               download="@($"{_selectedEvent.Slug}.gmd")"
+                               data-enhance-nav="false">
+                                <GeometryDashText Text="EXPORT GMD" Height="13" />
+                            </a>
+                        </div>
                     }
                 </div>
 
