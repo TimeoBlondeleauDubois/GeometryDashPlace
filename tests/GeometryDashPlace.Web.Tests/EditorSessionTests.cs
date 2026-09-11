@@ -130,6 +130,52 @@ public sealed class EditorSessionTests
     }
 
     [Fact]
+    public void RepositioningPendingColorTrigger_PreservesItsSettings()
+    {
+        var editor = CreateEditor();
+        editor.SelectCatalogObject("color_trigger");
+        ClickCell(editor, 5, 2);
+        editor.SetColorTarget("ground");
+        editor.SetColorHex("1E23CD");
+        editor.SetColorDuration("5");
+
+        ClickCell(editor, 12, 4);
+
+        Assert.NotNull(editor.PendingObject);
+        Assert.Equal(12, editor.PendingObject.X);
+        Assert.Equal(4, editor.PendingObject.Y);
+        Assert.Equal("ground", editor.PendingObject.ColorTarget);
+        Assert.Equal((30, 35, 205),
+            (editor.PendingObject.Red, editor.PendingObject.Green, editor.PendingObject.Blue));
+        Assert.Equal(5, editor.PendingObject.Duration);
+    }
+
+    [Fact]
+    public void PendingTriggerPreviewsItsColorButRemoteGhostDoesNotAffectTheScene()
+    {
+        var editor = CreateEditor();
+        editor.ApplyRemotePresence(
+            Guid.NewGuid(),
+            "RemotePlayer",
+            null,
+            null,
+            null,
+            ColorTrigger("bg_color_trigger", 2, 1, 200, 10, 20, 1));
+
+        Assert.Null(editor.CreateRenderSnapshot().BackgroundColor);
+
+        editor.SelectCatalogObject("color_trigger");
+        ClickCell(editor, 5, 2);
+        editor.SetColorHex("1E23CD");
+
+        var preview = editor.CreateRenderSnapshot().BackgroundColor;
+        Assert.NotNull(preview);
+        Assert.Equal(30, preview.Red, 6);
+        Assert.Equal(35, preview.Green, 6);
+        Assert.Equal(205, preview.Blue, 6);
+    }
+
+    [Fact]
     public void RemoteMove_RemovesSourceAndReplacesTarget()
     {
         var editor = CreateEditor();
@@ -290,6 +336,24 @@ public sealed class EditorSessionTests
             X = x,
             Y = y,
             Rotation = rotation
+        };
+
+    private static EditorObjectInstance ColorTrigger(
+        string type,
+        int x,
+        int y,
+        int red,
+        int green,
+        int blue,
+        double duration) => new()
+        {
+            Type = type,
+            X = x,
+            Y = y,
+            Red = red,
+            Green = green,
+            Blue = blue,
+            Duration = duration
         };
 
     private static void ClickCell(

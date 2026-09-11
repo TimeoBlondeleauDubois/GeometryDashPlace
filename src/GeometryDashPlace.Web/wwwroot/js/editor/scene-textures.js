@@ -27,6 +27,14 @@ function drawRepeatedTexture(context, image, width, top, height, offsetX) {
     }
 }
 
+function channel(value) {
+    return Math.round(Math.min(255, Math.max(0, value)));
+}
+
+function rgb(color, redFactor = 1, greenFactor = 1, blueFactor = 1) {
+    return `rgb(${channel(color.red * redFactor)} ${channel(color.green * greenFactor)} ${channel(color.blue * blueFactor)})`;
+}
+
 export function drawClassicScene(context, options) {
     const {
         width,
@@ -35,13 +43,15 @@ export function drawClassicScene(context, options) {
         groundTileSize,
         worldOffsetPixels,
         backgroundImage,
-        groundImage
+        groundImage,
+        backgroundColor,
+        groundColor
     } = options;
 
     const backgroundGradient = context.createLinearGradient(0, 0, 0, groundTop);
-    backgroundGradient.addColorStop(0, "#154d9b");
-    backgroundGradient.addColorStop(0.55, "#1975dc");
-    backgroundGradient.addColorStop(1, "#1688f2");
+    backgroundGradient.addColorStop(0, rgb(backgroundColor, 0.84, 0.658, 0.705));
+    backgroundGradient.addColorStop(0.55, rgb(backgroundColor));
+    backgroundGradient.addColorStop(1, rgb(backgroundColor, 0.88, 1.162, 1.1));
     context.fillStyle = backgroundGradient;
     context.fillRect(0, 0, width, groundTop);
 
@@ -66,8 +76,8 @@ export function drawClassicScene(context, options) {
         groundTop,
         0,
         groundTop + groundTileSize);
-    groundGradient.addColorStop(0, "#057eff");
-    groundGradient.addColorStop(1, "#003d9d");
+    groundGradient.addColorStop(0, rgb(groundColor));
+    groundGradient.addColorStop(1, rgb(groundColor, 0, 0.484, 0.616));
     context.fillStyle = groundGradient;
     context.fillRect(0, groundTop, width, groundHeight);
 
@@ -88,8 +98,8 @@ export function drawClassicScene(context, options) {
 
     const boundaryGradient = context.createLinearGradient(0, groundTop - 3, 0, groundTop + 4);
     boundaryGradient.addColorStop(0, "rgba(103, 241, 255, 0)");
-    boundaryGradient.addColorStop(0.42, "#72f5ff");
-    boundaryGradient.addColorStop(1, "#06a8ff");
+    boundaryGradient.addColorStop(0.42, rgb(groundColor, 22.8, 1.94, 1));
+    boundaryGradient.addColorStop(1, rgb(groundColor, 1.2, 1.33, 1));
     context.fillStyle = boundaryGradient;
     context.fillRect(0, groundTop - 3, width, 7);
 }
