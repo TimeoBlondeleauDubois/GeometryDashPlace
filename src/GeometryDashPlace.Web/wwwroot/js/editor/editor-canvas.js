@@ -1,6 +1,8 @@
 import { drawClassicScene } from "/js/editor/scene-textures.js";
 
 const instances = new WeakMap();
+const defaultBackgroundColor = Object.freeze({ red: 25, green: 117, blue: 220 });
+const defaultGroundColor = Object.freeze({ red: 5, green: 126, blue: 255 });
 
 export function initialize(canvas, dotNetReference, options) {
     dispose(canvas);
@@ -116,6 +118,8 @@ function drawEditor(canvas, instance) {
     const gridTop = gridToScreenY(state.rowCount);
     const gridBottom = gridToScreenY(0);
     const groundTop = Math.min(Math.max(gridBottom, 0), state.height);
+    const backgroundColor = state.backgroundColor ?? defaultBackgroundColor;
+    const groundColor = state.groundColor ?? defaultGroundColor;
 
     context.clearRect(0, 0, state.width, state.height);
     drawClassicScene(context, {
@@ -125,7 +129,9 @@ function drawEditor(canvas, instance) {
         groundTileSize: state.groundTileCells * state.cellSize,
         worldOffsetPixels: state.offsetX * state.cellSize,
         backgroundImage: instance.backgroundImage,
-        groundImage: instance.groundImage
+        groundImage: instance.groundImage,
+        backgroundColor,
+        groundColor
     });
 
     const visibleLeft = Math.max(0, gridLeft);

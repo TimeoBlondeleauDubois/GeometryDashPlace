@@ -713,10 +713,23 @@ public sealed class EditorSession
             pair.Value.Preview?.X,
             pair.Value.Preview?.Y)).ToArray();
 
+        var sceneObjects = _objects
+            .Where(pair => pair.Key != EditingObjectKey)
+            .Select(pair => pair.Value)
+            .ToList();
+        if (PendingObject is not null)
+        {
+            sceneObjects.Add(PendingObject);
+        }
+
+        var viewportCenterX = OffsetX + Width / CellSize / 2;
+        var sceneColors = EditorSceneColorCalculator.Calculate(sceneObjects, viewportCenterX);
+
         return new EditorRenderSnapshot(
             Width, Height, BaseCellSize, CellSize, GroundBaseline, OffsetX, OffsetY,
             ColumnCount, RowCount, GroundTileCells, ObjectTextureUnit,
-            renderObjects, remotePresences, HoverCell, SelectedCell, rotationGuide);
+            renderObjects, remotePresences, HoverCell, SelectedCell, rotationGuide,
+            sceneColors.Background, sceneColors.Ground);
     }
 
     private void HandleCellClick(EditorCell cell)
@@ -749,7 +762,15 @@ public sealed class EditorSession
         }
 
         EditingObjectKey = replacedObjectKey;
-        PendingObject = CreatePendingObject(SelectedObjectType, cell.X, cell.Y, SelectedRotation);
+        if (PendingObject is not null && PendingObject.Type == SelectedObjectType)
+        {
+            PendingObject.X = cell.X;
+            PendingObject.Y = cell.Y;
+        }
+        else
+        {
+            PendingObject = CreatePendingObject(SelectedObjectType, cell.X, cell.Y, SelectedRotation);
+        }
         SelectedCell = cell;
         FreeRotationEnabled = false;
         ScaleModeEnabled = false;

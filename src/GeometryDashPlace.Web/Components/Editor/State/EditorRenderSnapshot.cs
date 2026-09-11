@@ -22,6 +22,13 @@ public sealed record EditorRemotePresence(
 
 public sealed record EditorCursorPosition(double X, double Y);
 
+public sealed record EditorSceneColor(
+    double Red,
+    double Green,
+    double Blue,
+    int TriggerX,
+    int TriggerY);
+
 public sealed record EditorRenderSnapshot(
     double Width,
     double Height,
@@ -38,4 +45,6 @@ public sealed record EditorRenderSnapshot(
     IReadOnlyList<EditorRemotePresence> RemotePresences,
     EditorCell? HoverCell,
     EditorCell? SelectedCell,
-    FreeRotationGuide? RotationGuide);
+    FreeRotationGuide? RotationGuide,
+    EditorSceneColor? BackgroundColor,
+    EditorSceneColor? GroundColor);
