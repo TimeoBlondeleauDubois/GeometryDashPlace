@@ -4,6 +4,7 @@ using GeometryDashPlace.Web.Data.Entities;
 using GeometryDashPlace.Web.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GeometryDashPlace.Web.Tests.Integration;
 
@@ -98,6 +99,47 @@ public sealed class LevelHistoryTests(PostgreSqlIntegrationFixture database)
         using var response = await reader.GetAsync(RevisionUrl(scenario.EventId, revision));
 
         await AssertProblemAsync(response, status, expectedCode);
+    }
+
+    [PostgreSqlFact]
+    public async Task RevisionHistory_ContainsReplayAuthorAndActionDetails()
+    {
+        var scenario = await database.CreateScenarioAsync(userCount: 2);
+        await using (var context = database.CreateDbContext())
+        {
+            var firstUser = await context.Users.SingleAsync(user => user.Id == scenario.UserIds[0]);
+            firstUser.Username = "ReplayHero";
+            firstUser.NormalizedUsername = "REPLAYHERO";
+            firstUser.AvatarUrl = "https://example.test/avatar.png";
+            await context.SaveChangesAsync();
+        }
+
+        using var firstPlayer = database.Application.CreateClient(scenario.UserIds[0]);
+        using var secondPlayer = database.Application.CreateClient(scenario.UserIds[1]);
+        await PutAsync(firstPlayer, scenario.EventId, 1, 1, "block");
+        await PutAsync(secondPlayer, scenario.EventId, 1, 1, "spike");
+
+        using var scope = database.Application.Services.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ILevelRepository>();
+        var revisions = await repository.LoadRevisionHistoryAsync(scenario.EventId);
+
+        Assert.Collection(
+            revisions,
+            first =>
+            {
+                Assert.Equal(1, first.Revision);
+                Assert.Equal("place", first.Action);
+                Assert.Equal("block", first.ObjectType);
+                Assert.Equal("ReplayHero", first.Author);
+                Assert.Equal("https://example.test/avatar.png", first.AuthorAvatarUrl);
+            },
+            second =>
+            {
+                Assert.Equal(2, second.Revision);
+                Assert.Equal("replace", second.Action);
+                Assert.Equal("spike", second.ObjectType);
+                Assert.Equal(scenario.UserIds[1], second.AuthorUserId);
+            });
     }
 
     private static async Task PutAsync(

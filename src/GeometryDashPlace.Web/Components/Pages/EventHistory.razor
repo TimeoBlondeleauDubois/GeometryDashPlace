@@ -1,5 +1,6 @@
 @page "/events/{Slug}"
 @rendermode InteractiveServer
+@implements IAsyncDisposable
 @using System.Globalization
 @using GeometryDashPlace.Web.Components.Editor.State
 @using GeometryDashPlace.Web.Assets
@@ -58,6 +59,28 @@ else
             </header>
 
             <section class="history-controls" aria-label="Revision history">
+                <div class="history-playback-controls">
+                    <button type="button"
+                            class="history-playback-button @(_isPlaying ? "is-playing" : null)"
+                            disabled="@(_event.Revision == 0)"
+                            aria-label="@(_isPlaying ? "Pause replay" : "Play replay")"
+                            @onclick="TogglePlaybackAsync">
+                        <GeometryDashText Text="@(_isPlaying ? "PAUSE" : "PLAY")" Height="14" />
+                    </button>
+
+                    <div class="history-speed-controls" aria-label="Replay speed">
+                        @foreach (var speed in PlaybackSpeeds)
+                        {
+                            <button type="button"
+                                    class="history-speed-button @(_playbackSpeed == speed ? "is-selected" : null)"
+                                    aria-pressed="@(_playbackSpeed == speed)"
+                                    @onclick="@(() => SetPlaybackSpeed(speed))">
+                                <GeometryDashText Text="@SpeedLabel(speed)" Height="11" />
+                            </button>
+                        }
+                    </div>
+                </div>
+
                 <button type="button"
                         class="history-step history-step-previous"
                         disabled="@(_isChangingRevision || _selectedRevision == 0)"
@@ -86,6 +109,37 @@ else
                         @onclick="NextRevisionAsync">
                     <img src="/assets/ui/editor/navigation/navigation-arrow.png" alt="" />
                 </button>
+
+                <article class="history-revision-details" aria-live="polite">
+                    @if (SelectedRevisionDetails is { } details)
+                    {
+                        @if (!string.IsNullOrWhiteSpace(details.AuthorAvatarUrl))
+                        {
+                            <img class="history-author-avatar"
+                                 src="@details.AuthorAvatarUrl"
+                                 alt=""
+                                 referrerpolicy="no-referrer" />
+                        }
+                        else
+                        {
+                            <span class="history-author-avatar history-author-avatar-default"
+                                  aria-hidden="true">@AvatarInitial(details.Author)</span>
+                        }
+
+                        <div class="history-change-summary">
+                            <GeometryDashText Text="@ActionLabel(details.Action)" Height="13" Gold="true" />
+                            <strong>@details.Author</strong>
+                            <span>@PositionLabel(details) - @FormatReplayDate(details.PlacedAt)</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="history-change-summary history-change-start">
+                            <GeometryDashText Text="LEVEL START" Height="13" Gold="true" />
+                            <span>No placement has been applied yet.</span>
+                        </div>
+                    }
+                </article>
             </section>
 
             @if (_error is not null)
@@ -98,11 +152,18 @@ else
 
 @code {
     private readonly EditorSession Editor = new(EditorObjectCatalog.All);
+    private static readonly double[] PlaybackSpeeds = [1, 2, 5];
+    private static readonly TimeSpan BasePlaybackDelay = TimeSpan.FromMilliseconds(800);
     private LevelEvent? _event;
+    private IReadOnlyDictionary<long, LevelRevisionDetails> _revisionHistory =
+        new Dictionary<long, LevelRevisionDetails>();
     private long _selectedRevision;
     private bool _isCurrentEvent;
     private bool _isInitialLoading = true;
     private bool _isChangingRevision;
+    private bool _isPlaying;
+    private double _playbackSpeed = 1;
+    private CancellationTokenSource? _playbackCancellation;
     private string? _error;
 
     [Parameter]
@@ -112,8 +173,12 @@ else
         ? "REVISION"
         : $"REVISION {_selectedRevision} / {_event.Revision}";
 
+    private LevelRevisionDetails? SelectedRevisionDetails =>
+        _revisionHistory.GetValueOrDefault(_selectedRevision);
+
     protected override async Task OnParametersSetAsync()
     {
+        StopPlayback();
         _isInitialLoading = true;
         _error = null;
         try
@@ -128,6 +193,8 @@ else
 
             var current = await EventRepository.GetCurrentAsync();
             _isCurrentEvent = current?.Id == _event.Id;
+            _revisionHistory = (await LevelRepository.LoadRevisionHistoryAsync(_event.Id))
+                .ToDictionary(revision => revision.Revision);
             await LoadRevisionAsync(_event.Revision);
         }
         catch
@@ -141,12 +208,27 @@ else
         }
     }
 
-    private Task PreviousRevisionAsync() => LoadRevisionAsync(_selectedRevision - 1);
+    public ValueTask DisposeAsync()
+    {
+        StopPlayback();
+        return ValueTask.CompletedTask;
+    }
 
-    private Task NextRevisionAsync() => LoadRevisionAsync(_selectedRevision + 1);
+    private async Task PreviousRevisionAsync()
+    {
+        StopPlayback();
+        await LoadRevisionAsync(_selectedRevision - 1);
+    }
+
+    private async Task NextRevisionAsync()
+    {
+        StopPlayback();
+        await AdvanceRevisionAsync();
+    }
 
     private async Task HandleRevisionChangedAsync(ChangeEventArgs eventArgs)
     {
+        StopPlayback();
         if (long.TryParse(
                 eventArgs.Value?.ToString(),
                 NumberStyles.Integer,
@@ -157,7 +239,105 @@ else
         }
     }
 
-    private async Task LoadRevisionAsync(long revision)
+    private async Task TogglePlaybackAsync()
+    {
+        if (_isPlaying)
+        {
+            StopPlayback();
+            return;
+        }
+
+        if (_event is null || _event.Revision == 0)
+        {
+            return;
+        }
+
+        if (_selectedRevision >= _event.Revision)
+        {
+            await LoadRevisionAsync(0);
+        }
+
+        _playbackCancellation?.Dispose();
+        _playbackCancellation = new CancellationTokenSource();
+        _isPlaying = true;
+        _ = RunPlaybackAsync(_playbackCancellation);
+    }
+
+    private async Task RunPlaybackAsync(CancellationTokenSource playback)
+    {
+        try
+        {
+            while (_event is not null && _selectedRevision < _event.Revision)
+            {
+                var delay = TimeSpan.FromMilliseconds(
+                    BasePlaybackDelay.TotalMilliseconds / _playbackSpeed);
+                await Task.Delay(delay, playback.Token);
+                await InvokeAsync(() => AdvanceRevisionAsync(playback.Token));
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_playbackCancellation, playback))
+            {
+                _isPlaying = false;
+                _playbackCancellation = null;
+                playback.Dispose();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private void StopPlayback()
+    {
+        _isPlaying = false;
+        var playback = _playbackCancellation;
+        _playbackCancellation = null;
+        playback?.Cancel();
+        playback?.Dispose();
+    }
+
+    private void SetPlaybackSpeed(double speed)
+    {
+        if (PlaybackSpeeds.Contains(speed))
+        {
+            _playbackSpeed = speed;
+        }
+    }
+
+    private async Task AdvanceRevisionAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_event is null || _selectedRevision >= _event.Revision)
+        {
+            return;
+        }
+
+        var nextRevision = _selectedRevision + 1;
+        if (!_revisionHistory.TryGetValue(nextRevision, out var details))
+        {
+            await LoadRevisionAsync(nextRevision, cancellationToken);
+            return;
+        }
+
+        EditorCell? source = details.SourceX is { } sourceX && details.SourceY is { } sourceY
+            ? new EditorCell(sourceX, sourceY)
+            : null;
+        Editor.ApplyConfirmedObject(
+            new EditorCell(details.X, details.Y),
+            details.Cell is null ? null : ToEditorObject(details.Cell),
+            source);
+        _selectedRevision = nextRevision;
+        Editor.FocusCell(new EditorCell(details.X, details.Y));
+        _error = null;
+    }
+
+    private async Task LoadRevisionAsync(
+        long revision,
+        CancellationToken cancellationToken = default)
     {
         if (_event is null || _isChangingRevision)
         {
@@ -169,13 +349,23 @@ else
         _error = null;
         try
         {
-            var state = await LevelRepository.LoadRevisionAsync(_event.Id, revision);
+            var state = await LevelRepository.LoadRevisionAsync(
+                _event.Id,
+                revision,
+                cancellationToken);
             Editor.LoadConfirmedObjects(state.Cells.Select(ToEditorObject));
             _selectedRevision = state.Revision;
+            var details = SelectedRevisionDetails;
+            Editor.FocusCell(details is null
+                ? null
+                : new EditorCell(details.X, details.Y));
         }
         catch (LevelPersistenceException exception)
         {
             _error = exception.Message;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
         }
         catch
         {
@@ -186,6 +376,32 @@ else
             _isChangingRevision = false;
         }
     }
+
+    private static string ActionLabel(string action) => action switch
+    {
+        "place" => "PLACED",
+        "replace" => "REPLACED",
+        "delete" => "DELETED",
+        "move" => "MOVED",
+        "move_replace" => "MOVED AND REPLACED",
+        _ => action.ToUpperInvariant()
+    };
+
+    private static string PositionLabel(LevelRevisionDetails details) =>
+        details.SourceX is { } sourceX && details.SourceY is { } sourceY
+            ? $"({sourceX}, {sourceY}) -> ({details.X}, {details.Y})"
+            : $"({details.X}, {details.Y})";
+
+    private static string FormatReplayDate(DateTimeOffset value) =>
+        value.LocalDateTime.ToString("dd MMM yyyy HH:mm:ss", CultureInfo.InvariantCulture);
+
+    private static string SpeedLabel(double speed) =>
+        $"X{speed.ToString("0", CultureInfo.InvariantCulture)}";
+
+    private static string AvatarInitial(string author) =>
+        string.IsNullOrWhiteSpace(author)
+            ? "?"
+            : author.Trim()[0].ToString().ToUpperInvariant();
 
     private static EditorObjectInstance ToEditorObject(LevelCell cell) => new()
     {
