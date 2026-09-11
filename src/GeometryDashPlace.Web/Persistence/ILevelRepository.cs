@@ -9,6 +9,10 @@ public interface ILevelRepository
         long revision,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<LevelRevisionDetails>> LoadRevisionHistoryAsync(
+        Guid eventId,
+        CancellationToken cancellationToken = default);
+
     Task<LevelCooldownState> GetCooldownAsync(
         Guid eventId,
         Guid userId,

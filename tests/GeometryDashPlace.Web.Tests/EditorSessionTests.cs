@@ -176,6 +176,21 @@ public sealed class EditorSessionTests
     }
 
     [Fact]
+    public void FocusCell_CentersAndHighlightsReplayAction()
+    {
+        var editor = CreateEditor();
+
+        editor.FocusCell(new EditorCell(100, 4));
+
+        Assert.Equal(new EditorCell(100, 4), editor.SelectedCell);
+        Assert.Equal(82.5, editor.OffsetX, 6);
+
+        editor.FocusCell(null);
+
+        Assert.Null(editor.SelectedCell);
+    }
+
+    [Fact]
     public void RemoteMove_RemovesSourceAndReplacesTarget()
     {
         var editor = CreateEditor();

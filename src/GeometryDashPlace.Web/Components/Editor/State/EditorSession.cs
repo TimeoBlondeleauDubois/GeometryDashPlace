@@ -410,6 +410,21 @@ public sealed class EditorSession
         NotifyChanged();
     }
 
+    public void FocusCell(EditorCell? cell)
+    {
+        SelectedCell = cell;
+        if (cell is { } target &&
+            target.X >= 0 && target.X < ColumnCount &&
+            target.Y >= 0 && target.Y < RowCount)
+        {
+            OffsetX = target.X + 0.5 - Width / CellSize / 2;
+            OffsetY = target.Y + 0.5 - GroundBaseline / CellSize / 2;
+            ClampCamera();
+        }
+
+        NotifyChanged();
+    }
+
     public void SynchronizeConfirmedObjects(IEnumerable<EditorObjectInstance> objects)
     {
         ReplaceConfirmedObjects(objects);

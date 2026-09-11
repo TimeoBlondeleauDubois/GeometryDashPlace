@@ -21,6 +21,20 @@ public sealed record LevelState(
     long Revision,
     IReadOnlyList<LevelCell> Cells);
 
+public sealed record LevelRevisionDetails(
+    long Revision,
+    string Action,
+    int X,
+    int Y,
+    int? SourceX,
+    int? SourceY,
+    string? ObjectType,
+    LevelCell? Cell,
+    Guid AuthorUserId,
+    string Author,
+    string? AuthorAvatarUrl,
+    DateTimeOffset PlacedAt);
+
 public sealed record LevelCooldownState(
     DateTimeOffset ServerTime,
     DateTimeOffset? NextPlacementAt);

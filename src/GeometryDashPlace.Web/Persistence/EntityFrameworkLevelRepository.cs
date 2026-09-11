@@ -93,6 +93,41 @@ public sealed class EntityFrameworkLevelRepository(
         return new LevelState(eventId, revision, cells);
     }
 
+    public async Task<IReadOnlyList<LevelRevisionDetails>> LoadRevisionHistoryAsync(
+        Guid eventId,
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+        if (!await context.Events.AsNoTracking().AnyAsync(
+                levelEvent => levelEvent.Id == eventId,
+                cancellationToken))
+        {
+            throw Error(
+                "event_not_found", "The event does not exist.",
+                StatusCodes.Status404NotFound);
+        }
+
+        var history = await context.PlacementHistory
+            .AsNoTracking()
+            .Include(change => change.User)
+            .Where(change => change.EventId == eventId)
+            .OrderBy(change => change.Revision)
+            .ToListAsync(cancellationToken);
+        return history.Select(change => new LevelRevisionDetails(
+            change.Revision,
+            change.Action,
+            change.X,
+            change.Y,
+            change.SourceX,
+            change.SourceY,
+            change.NewObject?.Type ?? change.PreviousObject?.Type,
+            change.NewObject,
+            change.UserId,
+            change.User.Username ?? change.User.DisplayName,
+            change.User.AvatarUrl,
+            change.PlacedAt)).ToArray();
+    }
+
     public async Task<LevelCooldownState> GetCooldownAsync(
         Guid eventId,
         Guid userId,
