@@ -48,11 +48,6 @@ public sealed record AdminPlacementHistory(
     string UserDisplayName,
     DateTimeOffset CreatedAt);
 
-public sealed record AdminModerationResult(
-    Guid EventId,
-    long Revision,
-    int ChangedCells);
-
 public interface IAdministrationService
 {
     Task<bool> IsAdminAsync(Guid userId, CancellationToken cancellationToken = default);
@@ -74,11 +69,6 @@ public interface IAdministrationService
         Guid actorUserId,
         Guid eventId,
         int limit = 100,
-        CancellationToken cancellationToken = default);
-    Task<AdminModerationResult> RevertRevisionAsync(
-        Guid actorUserId,
-        Guid eventId,
-        long revision,
         CancellationToken cancellationToken = default);
 }
 
