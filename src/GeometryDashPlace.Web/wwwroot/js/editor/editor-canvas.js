@@ -11,6 +11,7 @@ export function initialize(canvas, dotNetReference, options) {
         context,
         definitions,
         objectImages: new Map(),
+        avatarImages: new Map(),
         backgroundImage: null,
         groundImage: null,
         freeRotationHandleImage: null,
@@ -176,6 +177,136 @@ function drawEditor(canvas, instance) {
         "rgba(255, 235, 55, 0.2)", "#fff36a", 3, true);
 
     drawFreeRotationGuide(context, instance, state, gridToScreenX, gridToScreenY);
+
+    for (const presence of state.remotePresences ?? []) {
+        drawRemotePresence(canvas, context, instance, state, presence, gridToScreenX, gridToScreenY);
+    }
+}
+
+function drawRemotePresence(canvas, context, instance, state, presence, gridToScreenX, gridToScreenY) {
+    const color = presenceColor(presence.userId);
+    if (presence.previewX !== null && presence.previewX !== undefined &&
+        presence.previewY !== null && presence.previewY !== undefined) {
+        const previewX = gridToScreenX(presence.previewX + 0.5);
+        const previewY = gridToScreenY(presence.previewY + 1) - 9;
+        drawIdentityBadge(canvas, context, instance, presence, previewX, previewY, color, 0.82);
+    }
+
+    if (presence.cursorX === null || presence.cursorX === undefined ||
+        presence.cursorY === null || presence.cursorY === undefined) {
+        return;
+    }
+
+    const cursorX = gridToScreenX(presence.cursorX);
+    const cursorY = gridToScreenY(presence.cursorY);
+    if (cursorX < -20 || cursorX > state.width + 20 ||
+        cursorY < -20 || cursorY > state.height + 20) {
+        return;
+    }
+
+    context.save();
+    context.translate(cursorX, cursorY);
+    context.beginPath();
+    context.moveTo(0, 0);
+    context.lineTo(4, 20);
+    context.lineTo(9, 14);
+    context.lineTo(15, 24);
+    context.lineTo(20, 21);
+    context.lineTo(14, 11);
+    context.lineTo(22, 9);
+    context.closePath();
+    context.fillStyle = color;
+    context.strokeStyle = "white";
+    context.lineWidth = 4;
+    context.lineJoin = "round";
+    context.stroke();
+    context.lineWidth = 2;
+    context.strokeStyle = "#07101d";
+    context.stroke();
+    context.fill();
+    context.restore();
+
+    drawIdentityBadge(canvas, context, instance, presence, cursorX + 16, cursorY + 27, color, 1);
+}
+
+function drawIdentityBadge(canvas, context, instance, presence, anchorX, anchorY, color, opacity) {
+    const username = String(presence.username || "PLAYER").slice(0, 20);
+    context.save();
+    context.font = "800 11px Arial, sans-serif";
+    const avatarSize = 22;
+    const height = 28;
+    const width = Math.min(170, Math.max(70, context.measureText(username).width + avatarSize + 22));
+    const x = Math.min(Math.max(5, anchorX), Math.max(5, canvas.clientWidth - width - 5));
+    const y = Math.min(Math.max(5, anchorY - height), Math.max(5, canvas.clientHeight - height - 5));
+
+    context.globalAlpha = opacity;
+    roundedRect(context, x, y, width, height, 8);
+    context.fillStyle = "rgba(7, 23, 47, 0.94)";
+    context.fill();
+    context.lineWidth = 2;
+    context.strokeStyle = "white";
+    context.stroke();
+    context.lineWidth = 3;
+    context.strokeStyle = color;
+    roundedRect(context, x + 2, y + 2, width - 4, height - 4, 6);
+    context.stroke();
+
+    const avatarX = x + 5;
+    const avatarY = y + 3;
+    context.save();
+    context.beginPath();
+    context.arc(avatarX + avatarSize / 2, avatarY + avatarSize / 2, avatarSize / 2, 0, Math.PI * 2);
+    context.clip();
+    const avatar = getAvatarImage(canvas, instance, presence.avatarUrl);
+    if (avatar?.complete && avatar.naturalWidth) {
+        context.drawImage(avatar, avatarX, avatarY, avatarSize, avatarSize);
+    } else {
+        context.fillStyle = color;
+        context.fillRect(avatarX, avatarY, avatarSize, avatarSize);
+        context.fillStyle = "white";
+        context.font = "900 12px Arial, sans-serif";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(username.charAt(0).toUpperCase() || "?", avatarX + 11, avatarY + 12);
+    }
+    context.restore();
+
+    context.fillStyle = "white";
+    context.font = "800 11px Arial, sans-serif";
+    context.textAlign = "left";
+    context.textBaseline = "middle";
+    context.shadowColor = "black";
+    context.shadowOffsetX = 1;
+    context.shadowOffsetY = 1;
+    context.fillText(username, x + avatarSize + 11, y + height / 2, width - avatarSize - 15);
+    context.restore();
+}
+
+function getAvatarImage(canvas, instance, path) {
+    if (!path) {
+        return null;
+    }
+
+    let image = instance.avatarImages.get(path);
+    if (!image) {
+        image = loadImage(path, () => requestRender(canvas, instance));
+        instance.avatarImages.set(path, image);
+    }
+    return image;
+}
+
+function presenceColor(userId) {
+    let hash = 0;
+    for (const character of String(userId)) {
+        hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0;
+    }
+    return `hsl(${Math.abs(hash) % 360} 82% 55%)`;
+}
+
+function roundedRect(context, x, y, width, height, radius) {
+    const safeRadius = Math.min(radius, width / 2, height / 2);
+    context.beginPath();
+    context.roundRect(x, y, width, height, safeRadius);
 }
 
 function drawObject(context, instance, state, object, gridToScreenX, gridToScreenY) {
