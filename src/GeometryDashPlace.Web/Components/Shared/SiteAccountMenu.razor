@@ -1,4 +1,8 @@
+@using GeometryDashPlace.Web.Auth
+@using GeometryDashPlace.Web.Profiles
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IUserProfileService Profiles
 
 <details class="site-menu">
     <summary class="site-menu-toggle" aria-label="Toggle account and navigation menu">
@@ -23,9 +27,27 @@
         </AuthorizeView>
         <AuthorizeView Context="account">
             <Authorized>
-                <span class="site-account-name" title="@account.User.Identity?.Name">
-                    @account.User.Identity?.Name
-                </span>
+                <div class="site-account-identity" title="@account.User.Identity?.Name">
+                    @if (!string.IsNullOrWhiteSpace(_profile?.AvatarUrl))
+                    {
+                        <img class="site-account-avatar"
+                             src="@_profile.AvatarUrl"
+                             alt=""
+                             referrerpolicy="no-referrer" />
+                    }
+                    else
+                    {
+                        <span class="site-account-avatar site-account-avatar-default" aria-hidden="true">
+                            @AccountInitial
+                        </span>
+                    }
+                    <span class="site-account-name">
+                        @(_profile?.Username ?? account.User.Identity?.Name)
+                    </span>
+                </div>
+                <a class="site-menu-action site-profile-action" href="@ProfileUrl">
+                    <GeometryDashText Text="EDIT PROFILE" Height="13" />
+                </a>
                 <a class="site-menu-action site-switch-account-action"
                    href="@LoginUrl"
                    data-enhance-nav="false">
@@ -50,11 +72,25 @@
 </details>
 
 @code {
+    private UserProfile? _profile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (AuthenticatedUser.TryGetUserId(authenticationState.User, out var userId))
+        {
+            _profile = await Profiles.GetAsync(userId);
+        }
+    }
+
     private string LoginUrl =>
         $"/login/google?returnUrl={Uri.EscapeDataString(CurrentReturnUrl)}";
 
     private string LogoutUrl =>
         $"/logout?returnUrl={Uri.EscapeDataString(CurrentReturnUrl)}";
+
+    private string ProfileUrl =>
+        $"/profile/setup?returnUrl={Uri.EscapeDataString(CurrentReturnUrl)}";
 
     private string CurrentReturnUrl
     {
@@ -70,6 +106,17 @@
             return localUrl.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)
                 ? "/events"
                 : localUrl;
+        }
+    }
+
+    private string AccountInitial
+    {
+        get
+        {
+            var name = _profile?.Username ?? _profile?.GoogleDisplayName;
+            return string.IsNullOrWhiteSpace(name)
+                ? "?"
+                : name.Trim()[0].ToString().ToUpperInvariant();
         }
     }
 

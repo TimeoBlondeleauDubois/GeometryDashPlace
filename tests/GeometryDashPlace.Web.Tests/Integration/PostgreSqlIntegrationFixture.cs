@@ -88,7 +88,8 @@ public sealed class PostgreSqlIntegrationFixture : IAsyncLifetime
         bool isBanned = false,
         int userCount = 1,
         string eventStatus = "open",
-        bool isAdmin = false)
+        bool isAdmin = false,
+        bool isProfileCompleted = true)
     {
         var now = DateTimeOffset.UtcNow;
         var suffix = Guid.NewGuid().ToString("N");
@@ -99,6 +100,11 @@ public sealed class PostgreSqlIntegrationFixture : IAsyncLifetime
                 GoogleSubject = $"integration-{suffix}-{index}",
                 Email = $"integration-{suffix}-{index}@example.test",
                 DisplayName = $"Integration user {index + 1}",
+                Username = isProfileCompleted ? $"test_{suffix[..8]}_{index}" : null,
+                NormalizedUsername = isProfileCompleted
+                    ? $"TEST_{suffix[..8].ToUpperInvariant()}_{index}"
+                    : null,
+                IsProfileCompleted = isProfileCompleted,
                 IsEmailVerified = true,
                 IsAdmin = isAdmin,
                 IsBanned = isBanned,

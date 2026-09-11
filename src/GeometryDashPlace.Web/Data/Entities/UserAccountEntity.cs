@@ -6,7 +6,12 @@ public sealed class UserAccountEntity
     public required string GoogleSubject { get; set; }
     public required string Email { get; set; }
     public required string DisplayName { get; set; }
+    public string? Username { get; set; }
+    public string? NormalizedUsername { get; set; }
     public string? AvatarUrl { get; set; }
+    public byte[]? AvatarPng { get; set; }
+    public string? GoogleAvatarUrl { get; set; }
+    public bool IsProfileCompleted { get; set; }
     public bool IsEmailVerified { get; set; }
     public bool IsAdmin { get; set; }
     public bool IsBanned { get; set; }

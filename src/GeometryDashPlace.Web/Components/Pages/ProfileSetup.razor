@@ -1,0 +1,266 @@
+@page "/profile/setup"
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@using GeometryDashPlace.Web.Auth
+@using GeometryDashPlace.Web.Profiles
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IUserProfileService Profiles
+@inject NavigationManager Navigation
+
+<PageTitle>Player Profile - Geometry Dash Place</PageTitle>
+
+<RotatingPageBackground />
+
+<main class="profile-page">
+    <section class="profile-dialog" aria-labelledby="profile-title">
+        <header class="profile-header">
+            <span class="profile-info-icon" aria-hidden="true">i</span>
+            <h1 id="profile-title">
+                <GeometryDashText Text="PLAYER PROFILE" Height="37" Gold="true" />
+            </h1>
+        </header>
+
+        @if (_isLoading)
+        {
+            <div class="profile-state">
+                <GeometryDashText Text="LOADING" Height="26" />
+            </div>
+        }
+        else if (_profile is null)
+        {
+            <div class="profile-message is-error" role="alert">
+                Your Google account could not be loaded. Please sign out and try again.
+            </div>
+        }
+        else
+        {
+            <p class="profile-introduction">
+                Choose the identity other players will see. You must complete this step before joining an event.
+            </p>
+
+            @if (!string.IsNullOrWhiteSpace(_error))
+            {
+                <div class="profile-message is-error" role="alert">@_error</div>
+            }
+
+            <div class="profile-field">
+                <label for="profile-username">USERNAME</label>
+                <input id="profile-username"
+                       maxlength="20"
+                       autocomplete="nickname"
+                       spellcheck="false"
+                       @bind="_username"
+                       @bind:event="oninput" />
+                <small>3 to 20 characters: letters, numbers, _ or -</small>
+            </div>
+
+            <fieldset class="profile-avatar-fieldset">
+                <legend>PROFILE PICTURE</legend>
+                <div class="profile-avatar-options">
+                    @if (!string.IsNullOrWhiteSpace(_profile.GoogleAvatarUrl))
+                    {
+                        <button type="button"
+                                class="@AvatarOptionClass(ProfileAvatarChoice.Google)"
+                                aria-pressed="@(_avatarChoice == ProfileAvatarChoice.Google)"
+                                @onclick="() => SelectAvatar(ProfileAvatarChoice.Google)">
+                            <img src="@_profile.GoogleAvatarUrl"
+                                 alt="Google profile"
+                                 referrerpolicy="no-referrer" />
+                            <span>GOOGLE</span>
+                        </button>
+                    }
+
+                    <button type="button"
+                            class="@AvatarOptionClass(ProfileAvatarChoice.Default)"
+                            aria-pressed="@(_avatarChoice == ProfileAvatarChoice.Default)"
+                            @onclick="() => SelectAvatar(ProfileAvatarChoice.Default)">
+                        <span class="profile-default-avatar" aria-hidden="true">@Initial</span>
+                        <span>DEFAULT</span>
+                    </button>
+
+                    <button type="button"
+                            class="@AvatarOptionClass(ProfileAvatarChoice.Upload)"
+                            aria-pressed="@(_avatarChoice == ProfileAvatarChoice.Upload)"
+                            @onclick="() => SelectAvatar(ProfileAvatarChoice.Upload)">
+                        @if (UploadedAvatarPreview is { } uploadedAvatar)
+                        {
+                            <img src="@uploadedAvatar" alt="Uploaded profile preview" />
+                        }
+                        else
+                        {
+                            <span class="profile-custom-avatar" aria-hidden="true">+</span>
+                        }
+                        <span>UPLOAD PNG</span>
+                    </button>
+                </div>
+            </fieldset>
+
+            @if (_avatarChoice == ProfileAvatarChoice.Upload)
+            {
+                <div class="profile-upload-field">
+                    <label class="profile-upload-button">
+                        <InputFile OnChange="UploadAvatarAsync" accept="image/png,.png" />
+                        <GeometryDashText Text="CHOOSE PNG" Height="15" />
+                    </label>
+                    <span>@(_uploadedFileName ?? "PNG only - maximum 1 MB and 1024 x 1024")</span>
+                </div>
+            }
+
+            <footer class="profile-actions">
+                <a class="profile-logout"
+                   href="/logout?returnUrl=%2Fevents"
+                   data-enhance-nav="false">
+                    <GeometryDashText Text="LOG OUT" Height="15" />
+                </a>
+                <button type="button"
+                        class="profile-save"
+                        disabled="@_isSaving"
+                        @onclick="SaveAsync">
+                    <GeometryDashText Text="@(_isSaving ? "SAVING" : "CONTINUE")" Height="20" Gold="true" />
+                </button>
+            </footer>
+        }
+    </section>
+</main>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private UserProfile? _profile;
+    private string _username = string.Empty;
+    private ProfileAvatarUpload? _avatarUpload;
+    private string? _uploadedAvatarPreview;
+    private string? _uploadedFileName;
+    private ProfileAvatarChoice _avatarChoice = ProfileAvatarChoice.Google;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (!AuthenticatedUser.TryGetUserId(authenticationState.User, out var userId))
+        {
+            _isLoading = false;
+            return;
+        }
+
+        _profile = await Profiles.GetAsync(userId);
+        if (_profile is not null)
+        {
+            _username = _profile.Username ?? string.Empty;
+            if (_profile.AvatarUrl is null)
+            {
+                _avatarChoice = ProfileAvatarChoice.Default;
+            }
+            else if (string.Equals(
+                         _profile.AvatarUrl,
+                         _profile.GoogleAvatarUrl,
+                         StringComparison.Ordinal))
+            {
+                _avatarChoice = ProfileAvatarChoice.Google;
+            }
+            else
+            {
+                _avatarChoice = ProfileAvatarChoice.Upload;
+            }
+        }
+
+        _isLoading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_isSaving || _profile is null)
+        {
+            return;
+        }
+
+        _isSaving = true;
+        _error = null;
+        var result = await Profiles.SaveAsync(
+            _profile.UserId,
+            _username,
+            _avatarChoice,
+            _avatarUpload);
+        if (!result.Succeeded)
+        {
+            _error = result.Error;
+            _isSaving = false;
+            return;
+        }
+
+        Navigation.NavigateTo(SafeReturnUrl, forceLoad: true, replace: true);
+    }
+
+    private void SelectAvatar(ProfileAvatarChoice choice)
+    {
+        _avatarChoice = choice;
+        _error = null;
+    }
+
+    private async Task UploadAvatarAsync(InputFileChangeEventArgs eventArgs)
+    {
+        _error = null;
+        var file = eventArgs.File;
+        if (file.Size > UserProfileRules.MaximumAvatarBytes)
+        {
+            _error = "The PNG image must not exceed 1 MB.";
+            return;
+        }
+
+        try
+        {
+            await using var stream = file.OpenReadStream(UserProfileRules.MaximumAvatarBytes);
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer);
+            var content = buffer.ToArray();
+            var validationError = UserProfileRules.ValidatePng(content);
+            if (validationError is not null)
+            {
+                _error = validationError;
+                return;
+            }
+
+            _avatarUpload = new ProfileAvatarUpload(content);
+            _uploadedAvatarPreview = $"data:image/png;base64,{Convert.ToBase64String(content)}";
+            _uploadedFileName = file.Name;
+            _avatarChoice = ProfileAvatarChoice.Upload;
+        }
+        catch (IOException)
+        {
+            _error = "The PNG image could not be read.";
+        }
+    }
+
+    private string AvatarOptionClass(ProfileAvatarChoice choice) =>
+        $"profile-avatar-card {(_avatarChoice == choice ? "is-selected" : null)}";
+
+    private string Initial
+    {
+        get
+        {
+            var source = string.IsNullOrWhiteSpace(_username)
+                ? _profile?.GoogleDisplayName
+                : _username;
+            return string.IsNullOrWhiteSpace(source)
+                ? "?"
+                : source.Trim()[0].ToString().ToUpperInvariant();
+        }
+    }
+
+    private string? UploadedAvatarPreview =>
+        _uploadedAvatarPreview ??
+        (_profile?.HasUploadedAvatar == true ? _profile.AvatarUrl : null);
+
+    private string SafeReturnUrl =>
+        !string.IsNullOrWhiteSpace(ReturnUrl) &&
+        ReturnUrl.StartsWith('/') &&
+        !ReturnUrl.StartsWith("//") &&
+        !ReturnUrl.StartsWith("/\\") &&
+        !ReturnUrl.StartsWith("/profile/setup", StringComparison.OrdinalIgnoreCase)
+            ? ReturnUrl
+            : "/";
+}

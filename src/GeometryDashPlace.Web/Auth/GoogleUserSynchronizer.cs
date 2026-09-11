@@ -59,6 +59,7 @@ public sealed class GoogleUserSynchronizer(
                 Email = email,
                 DisplayName = displayName,
                 AvatarUrl = avatarUrl,
+                GoogleAvatarUrl = avatarUrl,
                 IsEmailVerified = isEmailVerified,
                 IsAdmin = siteOwnership.IsOwner(email),
                 CreatedAt = now,
@@ -70,7 +71,11 @@ public sealed class GoogleUserSynchronizer(
         {
             user.Email = email;
             user.DisplayName = displayName;
-            user.AvatarUrl = avatarUrl;
+            user.GoogleAvatarUrl = avatarUrl;
+            if (!user.IsProfileCompleted)
+            {
+                user.AvatarUrl = avatarUrl;
+            }
             user.IsEmailVerified = isEmailVerified;
             user.IsAdmin |= siteOwnership.IsOwner(email);
             user.LastLoginAt = now;
@@ -78,7 +83,11 @@ public sealed class GoogleUserSynchronizer(
 
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
-        return new GoogleUser(user.Id, user.DisplayName, user.IsBanned);
+        return new GoogleUser(
+            user.Id,
+            user.Username ?? user.DisplayName,
+            user.IsBanned,
+            user.IsProfileCompleted);
     }
 
     private static bool IsUniqueViolation(Exception exception) =>
@@ -90,4 +99,8 @@ public sealed class GoogleUserSynchronizer(
         IsUniqueViolation(exception.InnerException);
 }
 
-public sealed record GoogleUser(Guid Id, string DisplayName, bool IsBanned);
+public sealed record GoogleUser(
+    Guid Id,
+    string DisplayName,
+    bool IsBanned,
+    bool IsProfileCompleted);
