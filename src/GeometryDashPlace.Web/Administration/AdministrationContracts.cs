@@ -19,7 +19,17 @@ public sealed record AdminEventInput(
     DateTimeOffset? StartsAt,
     DateTimeOffset? EndsAt,
     string BackgroundKey = "background-01",
-    string GroundKey = "ground-01");
+    string GroundKey = "ground-01",
+    int Width = EventGridLimits.DefaultWidth,
+    int Height = EventGridLimits.DefaultHeight);
+
+public static class EventGridLimits
+{
+    public const int DefaultWidth = 1024;
+    public const int DefaultHeight = 32;
+    public const int MinimumWidth = 1;
+    public const int MinimumHeight = 1;
+}
 
 public sealed record AdminEventDetailsInput(
     string Slug,
@@ -37,11 +47,6 @@ public sealed record AdminPlacementHistory(
     Guid UserId,
     string UserDisplayName,
     DateTimeOffset CreatedAt);
-
-public sealed record AdminModerationResult(
-    Guid EventId,
-    long Revision,
-    int ChangedCells);
 
 public interface IAdministrationService
 {
@@ -64,11 +69,6 @@ public interface IAdministrationService
         Guid actorUserId,
         Guid eventId,
         int limit = 100,
-        CancellationToken cancellationToken = default);
-    Task<AdminModerationResult> RevertRevisionAsync(
-        Guid actorUserId,
-        Guid eventId,
-        long revision,
         CancellationToken cancellationToken = default);
 }
 

@@ -10,7 +10,7 @@
          aria-valuemin="0"
          aria-valuemax="100"
          aria-valuenow="@Math.Round(Editor.TimelineProgress * 100)"
-         style="--timeline-position: @(2.2 + Editor.TimelineProgress * 95.6)%"
+         style="@TimelinePositionStyle"
          @onpointerdown="HandlePointerDown"
          @onpointermove="HandlePointerMove"
          @onpointerup="HandlePointerUp"
@@ -36,6 +36,9 @@
 
     [CascadingParameter]
     public required EditorSession Editor { get; set; }
+
+    private string TimelinePositionStyle => FormattableString.Invariant(
+        $"--timeline-position: {2.2 + Editor.TimelineProgress * 95.6:0.###}%");
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

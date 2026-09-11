@@ -4,8 +4,8 @@ namespace GeometryDashPlace.Web.Components.Editor.State;
 
 public sealed class EditorSession
 {
-    public const int ColumnCount = 1024;
-    public const int RowCount = 32;
+    public const int DefaultColumnCount = 1024;
+    public const int DefaultRowCount = 32;
     public const int GroundTileCells = 4;
     public const int ObjectTextureUnit = 120;
     public const int PalettePageSize = 12;
@@ -25,7 +25,7 @@ public sealed class EditorSession
     private readonly IReadOnlyList<EditorObjectDefinition> _definitions;
     private readonly IReadOnlyDictionary<string, EditorObjectDefinition> _definitionByType;
     private readonly Dictionary<string, EditorObjectInstance> _objects = [];
-    private readonly Dictionary<Guid, EditorObjectInstance> _remotePreviews = [];
+    private readonly Dictionary<Guid, RemotePresenceState> _remotePresences = [];
     private long? _pointerId;
     private double _pointerX;
     private double _pointerY;
@@ -33,10 +33,16 @@ public sealed class EditorSession
     private bool _isFreeRotating;
     private EditorMode _confirmationReturnMode = EditorMode.Build;
 
-    public EditorSession(IReadOnlyList<EditorObjectDefinition> definitions)
+    public EditorSession(
+        IReadOnlyList<EditorObjectDefinition> definitions,
+        int columnCount = DefaultColumnCount,
+        int rowCount = DefaultRowCount)
     {
+        ValidateGridSize(columnCount, rowCount);
         _definitions = definitions;
         _definitionByType = definitions.ToDictionary(definition => definition.Type);
+        ColumnCount = columnCount;
+        RowCount = rowCount;
     }
 
     public event Action? Changed;
@@ -44,11 +50,14 @@ public sealed class EditorSession
     public EditorMode Mode { get; private set; } = EditorMode.Build;
     public double Width { get; private set; }
     public double Height { get; private set; }
+    public int ColumnCount { get; private set; }
+    public int RowCount { get; private set; }
     public double BaseCellSize { get; private set; } = 30;
     public double Zoom { get; private set; } = 1;
     public double OffsetX { get; private set; }
     public double OffsetY { get; private set; }
     public EditorCell? HoverCell { get; private set; }
+    public EditorCursorPosition? CursorPosition { get; private set; }
     public EditorCell? SelectedCell { get; private set; }
     public EditorObjectInstance? PendingObject { get; private set; }
     public string? EditingObjectKey { get; private set; }
@@ -63,6 +72,8 @@ public sealed class EditorSession
     public bool CanDelete => Mode == EditorMode.Delete &&
         EditingObjectKey is not null && _objects.ContainsKey(EditingObjectKey);
     public bool CanValidate => Mode == EditorMode.Delete ? CanDelete : HasPendingObject;
+    public bool CanDeselect => BuildObjectArmed || PendingObject is not null ||
+        SelectedCell is not null || SelectedObjectType is not null || EditingObjectKey is not null;
     public bool CanRotate => PendingObject is not null && SelectedDefinition?.CanRotate is true;
     public bool CanFreeRotate => PendingObject is not null && SelectedDefinition?.CanFreeRotate is true;
     public bool CanScale => PendingObject is not null && SelectedDefinition?.CanScale is true;
@@ -122,6 +133,33 @@ public sealed class EditorSession
         BaseCellSize = Height / (RowCount + GroundTileCells);
         ClampCamera();
         NotifyChanged();
+    }
+
+    public void SetGridSize(int columnCount, int rowCount)
+    {
+        ValidateGridSize(columnCount, rowCount);
+        if (columnCount == ColumnCount && rowCount == RowCount)
+        {
+            return;
+        }
+
+        ColumnCount = columnCount;
+        RowCount = rowCount;
+        HoverCell = null;
+        CursorPosition = null;
+        SelectedCell = null;
+        ClearPendingSelection(false);
+        _objects.Clear();
+        _remotePresences.Clear();
+        BaseCellSize = Height > 0 ? Height / (RowCount + GroundTileCells) : 30;
+        ClampCamera();
+        NotifyChanged();
+    }
+
+    private static void ValidateGridSize(int columnCount, int rowCount)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(columnCount);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(rowCount);
     }
 
     public void SetMode(EditorMode mode)
@@ -197,6 +235,20 @@ public sealed class EditorSession
     public void NextPalettePage()
     {
         PalettePage = (PalettePage + 1) % PalettePageCount;
+        NotifyChanged();
+    }
+
+    public void Deselect()
+    {
+        if (!CanDeselect)
+        {
+            return;
+        }
+
+        ClearPendingSelection(false);
+        BuildObjectArmed = false;
+        SelectedObjectType = null;
+        SelectedRotation = 0;
         NotifyChanged();
     }
 
@@ -407,25 +459,43 @@ public sealed class EditorSession
         NotifyChanged();
     }
 
-    public void ApplyRemotePreview(Guid userId, EditorObjectInstance? preview)
+    public void ApplyRemotePresence(
+        Guid userId,
+        string username,
+        string? avatarUrl,
+        double? cursorX,
+        double? cursorY,
+        EditorObjectInstance? preview)
     {
-        if (preview is null)
+        if (preview is null && (cursorX is null || cursorY is null))
         {
-            if (_remotePreviews.Remove(userId))
+            if (_remotePresences.Remove(userId))
             {
                 NotifyChanged();
             }
             return;
         }
 
-        if (preview.X < 0 || preview.X >= ColumnCount ||
-            preview.Y < 0 || preview.Y >= RowCount ||
-            !_definitionByType.ContainsKey(CatalogTypeFor(preview.Type)))
+        if (preview is not null &&
+            (preview.X < 0 || preview.X >= ColumnCount ||
+             preview.Y < 0 || preview.Y >= RowCount ||
+             !_definitionByType.ContainsKey(CatalogTypeFor(preview.Type))))
         {
             return;
         }
 
-        _remotePreviews[userId] = preview.Clone();
+        double? safeCursorX = cursorX is null
+            ? null
+            : Math.Clamp(cursorX.Value, 0, ColumnCount);
+        double? safeCursorY = cursorY is null
+            ? null
+            : Math.Clamp(cursorY.Value, 0, RowCount);
+        _remotePresences[userId] = new RemotePresenceState(
+            string.IsNullOrWhiteSpace(username) ? "PLAYER" : username,
+            avatarUrl,
+            safeCursorX,
+            safeCursorY,
+            preview?.Clone());
         NotifyChanged();
     }
 
@@ -551,6 +621,7 @@ public sealed class EditorSession
         }
 
         HoverCell = ScreenToCell(x, y);
+        CursorPosition = ScreenToCursorPosition(x, y);
         NotifyChanged();
     }
 
@@ -579,6 +650,7 @@ public sealed class EditorSession
             HandleCellClick(cell);
         }
 
+        CursorPosition = ScreenToCursorPosition(x, y);
         _pointerId = null;
         NotifyChanged();
     }
@@ -591,6 +663,7 @@ public sealed class EditorSession
         }
 
         HoverCell = null;
+        CursorPosition = null;
         NotifyChanged();
     }
 
@@ -618,8 +691,9 @@ public sealed class EditorSession
             .Select(pair => CreateRenderObject(pair.Value, 1))
             .ToList();
 
-        renderObjects.AddRange(_remotePreviews.Values.Select(
-            preview => CreateRenderObject(preview, 0.3)));
+        renderObjects.AddRange(_remotePresences.Values
+            .Where(presence => presence.Preview is not null)
+            .Select(presence => CreateRenderObject(presence.Preview!, 0.3)));
 
         if (PendingObject is not null)
         {
@@ -630,10 +704,32 @@ public sealed class EditorSession
             ? new FreeRotationGuide(PendingObject.X, PendingObject.Y, SelectedRotation, FreeRotationRadiusCells)
             : null;
 
+        var remotePresences = _remotePresences.Select(pair => new EditorRemotePresence(
+            pair.Key,
+            pair.Value.Username,
+            pair.Value.AvatarUrl,
+            pair.Value.CursorX,
+            pair.Value.CursorY,
+            pair.Value.Preview?.X,
+            pair.Value.Preview?.Y)).ToArray();
+
+        var sceneObjects = _objects
+            .Where(pair => pair.Key != EditingObjectKey)
+            .Select(pair => pair.Value)
+            .ToList();
+        if (PendingObject is not null)
+        {
+            sceneObjects.Add(PendingObject);
+        }
+
+        var viewportCenterX = OffsetX + Width / CellSize / 2;
+        var sceneColors = EditorSceneColorCalculator.Calculate(sceneObjects, viewportCenterX);
+
         return new EditorRenderSnapshot(
             Width, Height, BaseCellSize, CellSize, GroundBaseline, OffsetX, OffsetY,
             ColumnCount, RowCount, GroundTileCells, ObjectTextureUnit,
-            renderObjects, HoverCell, SelectedCell, rotationGuide);
+            renderObjects, remotePresences, HoverCell, SelectedCell, rotationGuide,
+            sceneColors.Background, sceneColors.Ground);
     }
 
     private void HandleCellClick(EditorCell cell)
@@ -666,7 +762,15 @@ public sealed class EditorSession
         }
 
         EditingObjectKey = replacedObjectKey;
-        PendingObject = CreatePendingObject(SelectedObjectType, cell.X, cell.Y, SelectedRotation);
+        if (PendingObject is not null && PendingObject.Type == SelectedObjectType)
+        {
+            PendingObject.X = cell.X;
+            PendingObject.Y = cell.Y;
+        }
+        else
+        {
+            PendingObject = CreatePendingObject(SelectedObjectType, cell.X, cell.Y, SelectedRotation);
+        }
         SelectedCell = cell;
         FreeRotationEnabled = false;
         ScaleModeEnabled = false;
@@ -723,6 +827,15 @@ public sealed class EditorSession
         var row = (int)Math.Floor(OffsetY + (GroundBaseline - y) / CellSize);
         return column < 0 || column >= ColumnCount || row < 0 || row >= RowCount
             ? null : new EditorCell(column, row);
+    }
+
+    private EditorCursorPosition? ScreenToCursorPosition(double x, double y)
+    {
+        var gridX = OffsetX + x / CellSize;
+        var gridY = OffsetY + (GroundBaseline - y) / CellSize;
+        return gridX < 0 || gridX > ColumnCount || gridY < 0 || gridY > RowCount
+            ? null
+            : new EditorCursorPosition(gridX, gridY);
     }
 
     private double GridToScreenY(double y) => GroundBaseline - (y - OffsetY) * CellSize;
@@ -865,4 +978,11 @@ public sealed class EditorSession
         ? ColorTriggerType : type;
     private static string CellKey(int x, int y) => $"{x}:{y}";
     private void NotifyChanged() => Changed?.Invoke();
+
+    private sealed record RemotePresenceState(
+        string Username,
+        string? AvatarUrl,
+        double? CursorX,
+        double? CursorY,
+        EditorObjectInstance? Preview);
 }

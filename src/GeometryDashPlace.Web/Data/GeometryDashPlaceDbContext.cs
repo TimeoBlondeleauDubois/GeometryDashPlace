@@ -41,13 +41,19 @@ public sealed class GeometryDashPlaceDbContext(
             entity.Property(user => user.GoogleSubject).HasColumnName("google_subject").HasMaxLength(255);
             entity.Property(user => user.Email).HasColumnName("email").HasMaxLength(320);
             entity.Property(user => user.DisplayName).HasColumnName("display_name").HasMaxLength(100);
+            entity.Property(user => user.Username).HasColumnName("username").HasMaxLength(20);
+            entity.Property(user => user.NormalizedUsername).HasColumnName("normalized_username").HasMaxLength(20);
             entity.Property(user => user.AvatarUrl).HasColumnName("avatar_url");
+            entity.Property(user => user.AvatarPng).HasColumnName("avatar_png");
+            entity.Property(user => user.GoogleAvatarUrl).HasColumnName("google_avatar_url");
+            entity.Property(user => user.IsProfileCompleted).HasColumnName("is_profile_completed");
             entity.Property(user => user.IsEmailVerified).HasColumnName("is_email_verified");
             entity.Property(user => user.IsAdmin).HasColumnName("is_admin");
             entity.Property(user => user.IsBanned).HasColumnName("is_banned");
             entity.Property(user => user.CreatedAt).HasColumnName("created_at");
             entity.Property(user => user.LastLoginAt).HasColumnName("last_login_at");
             entity.HasIndex(user => user.GoogleSubject).IsUnique();
+            entity.HasIndex(user => user.NormalizedUsername).IsUnique();
         });
     }
 

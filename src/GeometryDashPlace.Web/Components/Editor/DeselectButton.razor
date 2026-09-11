@@ -1,0 +1,17 @@
+<div class="deselect-area">
+    <button type="button"
+            class="deselect-button"
+            aria-label="Cancel the current selection"
+            title="Cancel the current selection"
+            @onclick="Editor.Deselect">
+        <img src="/assets/ui/editor/actions/deselect.png"
+             alt=""
+             aria-hidden="true"
+             draggable="false" />
+    </button>
+</div>
+
+@code {
+    [CascadingParameter]
+    public required EditorSession Editor { get; set; }
+}

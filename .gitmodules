@@ -1,0 +1,4 @@
+[submodule "src/GeometryDashPlace.Web/External/gild_place_converter"]
+	path = src/GeometryDashPlace.Web/External/gild_place_converter
+	url = https://github.com/Gild56/gild_place_converter.git
+	branch = main

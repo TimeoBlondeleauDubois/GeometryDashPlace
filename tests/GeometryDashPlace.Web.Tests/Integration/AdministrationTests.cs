@@ -42,7 +42,9 @@ public sealed class AdministrationTests(PostgreSqlIntegrationFixture database)
             startsAt,
             endsAt,
             "background-02",
-            "ground-02");
+            "ground-02",
+            Width: 192,
+            Height: 24);
 
         await administration.SetAdminAsync(
             scenario.UserId,
@@ -51,6 +53,8 @@ public sealed class AdministrationTests(PostgreSqlIntegrationFixture database)
         var created = await administration.CreateEventAsync(scenario.UserId, input);
 
         Assert.Equal("open", created.Status);
+        Assert.Equal(192, created.Width);
+        Assert.Equal(24, created.Height);
         Assert.Equal("background-02", created.BackgroundKey);
         Assert.Equal("ground-02", created.GroundKey);
         await using (var context = database.CreateDbContext())
@@ -70,6 +74,13 @@ public sealed class AdministrationTests(PostgreSqlIntegrationFixture database)
                     Name = "Overlapping event"
                 }));
         Assert.Equal("event_schedule_overlap", overlap.Code);
+
+        var dimensionsLocked = await Assert.ThrowsAsync<AdministrationException>(() =>
+            administration.UpdateEventAsync(
+                scenario.UserId,
+                created.Id,
+                input with { Width = 193 }));
+        Assert.Equal("event_dimensions_locked", dimensionsLocked.Code);
 
         var completedInput = input with
         {
@@ -197,56 +208,4 @@ public sealed class AdministrationTests(PostgreSqlIntegrationFixture database)
         Assert.False(bannedUser.IsAdmin);
     }
 
-    [PostgreSqlFact]
-    public async Task Admin_CanRevertOneChange()
-    {
-        var scenario = await database.CreateScenarioAsync(
-            userCount: 2,
-            isAdmin: true);
-        using var scope = database.Application.Services.CreateScope();
-        var administration = scope.ServiceProvider.GetRequiredService<IAdministrationService>();
-        var levels = scope.ServiceProvider.GetRequiredService<ILevelRepository>();
-
-        await levels.PlaceAsync(
-            scenario.EventId,
-            scenario.UserIds[1],
-            1,
-            1,
-            new PlaceLevelCellRequest(Guid.NewGuid(), "block"));
-        await levels.PlaceAsync(
-            scenario.EventId,
-            scenario.UserIds[1],
-            2,
-            1,
-            new PlaceLevelCellRequest(Guid.NewGuid(), "spike"));
-        await levels.PlaceAsync(
-            scenario.EventId,
-            scenario.UserIds[1],
-            1,
-            1,
-            new PlaceLevelCellRequest(Guid.NewGuid(), "yellow_orb"));
-
-        var reverted = await administration.RevertRevisionAsync(
-            scenario.UserIds[0], scenario.EventId, revision: 3);
-        var afterRevert = await levels.LoadAsync(scenario.EventId);
-
-        Assert.Equal(1, reverted.ChangedCells);
-        Assert.Equal(4, reverted.Revision);
-        Assert.Equal("block", afterRevert.Cells.Single(cell => cell.X == 1).Type);
-
-        await using var context = database.CreateDbContext();
-        var revisions = await context.PlacementHistory
-            .Where(history => history.EventId == scenario.EventId)
-            .OrderBy(history => history.Revision)
-            .Select(history => history.Revision)
-            .ToArrayAsync();
-        Assert.Equal(
-            new long[] { 1, 2, 3, 4 },
-            revisions);
-        Assert.All(
-            await context.PlacementHistory
-                .Where(history => history.EventId == scenario.EventId && history.Revision == 4)
-                .ToListAsync(),
-            history => Assert.Equal(scenario.UserIds[0], history.UserId));
-    }
 }

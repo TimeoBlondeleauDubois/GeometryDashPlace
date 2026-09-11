@@ -130,6 +130,52 @@ public sealed class EditorSessionTests
     }
 
     [Fact]
+    public void RepositioningPendingColorTrigger_PreservesItsSettings()
+    {
+        var editor = CreateEditor();
+        editor.SelectCatalogObject("color_trigger");
+        ClickCell(editor, 5, 2);
+        editor.SetColorTarget("ground");
+        editor.SetColorHex("1E23CD");
+        editor.SetColorDuration("5");
+
+        ClickCell(editor, 12, 4);
+
+        Assert.NotNull(editor.PendingObject);
+        Assert.Equal(12, editor.PendingObject.X);
+        Assert.Equal(4, editor.PendingObject.Y);
+        Assert.Equal("ground", editor.PendingObject.ColorTarget);
+        Assert.Equal((30, 35, 205),
+            (editor.PendingObject.Red, editor.PendingObject.Green, editor.PendingObject.Blue));
+        Assert.Equal(5, editor.PendingObject.Duration);
+    }
+
+    [Fact]
+    public void PendingTriggerPreviewsItsColorButRemoteGhostDoesNotAffectTheScene()
+    {
+        var editor = CreateEditor();
+        editor.ApplyRemotePresence(
+            Guid.NewGuid(),
+            "RemotePlayer",
+            null,
+            null,
+            null,
+            ColorTrigger("bg_color_trigger", 2, 1, 200, 10, 20, 1));
+
+        Assert.Null(editor.CreateRenderSnapshot().BackgroundColor);
+
+        editor.SelectCatalogObject("color_trigger");
+        ClickCell(editor, 5, 2);
+        editor.SetColorHex("1E23CD");
+
+        var preview = editor.CreateRenderSnapshot().BackgroundColor;
+        Assert.NotNull(preview);
+        Assert.Equal(30, preview.Red, 6);
+        Assert.Equal(35, preview.Green, 6);
+        Assert.Equal(205, preview.Blue, 6);
+    }
+
+    [Fact]
     public void RemoteMove_RemovesSourceAndReplacesTarget()
     {
         var editor = CreateEditor();
@@ -171,18 +217,68 @@ public sealed class EditorSessionTests
         var editor = CreateEditor();
         var remoteUserId = Guid.NewGuid();
 
-        editor.ApplyRemotePreview(remoteUserId, Placed("spike", 7, 3));
+        editor.ApplyRemotePresence(
+            remoteUserId,
+            "RemotePlayer",
+            "/avatars/test.png",
+            7.25,
+            3.75,
+            Placed("spike", 7, 3));
 
-        var ghost = Assert.Single(editor.CreateRenderSnapshot().Objects);
+        var snapshot = editor.CreateRenderSnapshot();
+        var ghost = Assert.Single(snapshot.Objects);
         Assert.Equal("spike", ghost.CatalogType);
         Assert.Equal(7, ghost.X);
         Assert.Equal(3, ghost.Y);
         Assert.Equal(0.3, ghost.Opacity);
         Assert.Equal(0, editor.ObjectCount);
+        var presence = Assert.Single(snapshot.RemotePresences);
+        Assert.Equal("RemotePlayer", presence.Username);
+        Assert.Equal("/avatars/test.png", presence.AvatarUrl);
+        Assert.Equal(7.25, presence.CursorX);
+        Assert.Equal(3.75, presence.CursorY);
 
-        editor.ApplyRemotePreview(remoteUserId, null);
+        editor.ApplyRemotePresence(remoteUserId, "RemotePlayer", null, null, null, null);
 
         Assert.Empty(editor.CreateRenderSnapshot().Objects);
+        Assert.Empty(editor.CreateRenderSnapshot().RemotePresences);
+    }
+
+    [Fact]
+    public void Deselect_CancelsThePendingPlacementAndCatalogSelection()
+    {
+        var editor = CreateEditor();
+        editor.SelectCatalogObject("spike");
+        ClickCell(editor, 5, 2);
+
+        Assert.True(editor.CanDeselect);
+        Assert.NotNull(editor.PendingObject);
+
+        editor.Deselect();
+
+        Assert.False(editor.CanDeselect);
+        Assert.Null(editor.PendingObject);
+        Assert.Null(editor.SelectedObjectType);
+        Assert.Null(editor.SelectedCell);
+        Assert.Empty(editor.CreateRenderSnapshot().Objects);
+    }
+
+    [Fact]
+    public void Deselect_CancelsEditingWithoutRemovingTheConfirmedObject()
+    {
+        var editor = CreateEditor();
+        editor.LoadConfirmedObjects([Placed("block", 2, 3)]);
+        editor.SetMode(EditorMode.Edit);
+        ClickCell(editor, 2, 3);
+
+        editor.Deselect();
+
+        Assert.Null(editor.PendingObject);
+        Assert.Equal(1, editor.ObjectCount);
+        var rendered = Assert.Single(editor.CreateRenderSnapshot().Objects);
+        Assert.Equal("block", rendered.CatalogType);
+        Assert.Equal(2, rendered.X);
+        Assert.Equal(3, rendered.Y);
     }
 
     [Fact]
@@ -198,6 +294,29 @@ public sealed class EditorSessionTests
         Assert.False(editor.TryGetEditingCell(out _));
         var rendered = Assert.Single(editor.CreateRenderSnapshot().Objects);
         Assert.Equal("block", rendered.CatalogType);
+    }
+
+    [Fact]
+    public void CustomGridSize_DefinesTheEditableBounds()
+    {
+        var editor = new EditorSession(
+            EditorObjectCatalog.All,
+            columnCount: 12,
+            rowCount: 6);
+        editor.Resize(1080, 1080);
+        editor.SelectCatalogObject("block");
+
+        ClickCell(editor, 11, 5);
+
+        Assert.Equal(12, editor.ColumnCount);
+        Assert.Equal(6, editor.RowCount);
+        Assert.Equal(new EditorCell(11, 5), editor.SelectedCell);
+
+        editor.ConfirmPlacement();
+        ClickCell(editor, 12, 5);
+
+        Assert.Null(editor.PendingObject);
+        Assert.Equal(1, editor.ObjectCount);
     }
 
     private static EditorSession CreateEditor()
@@ -217,6 +336,24 @@ public sealed class EditorSessionTests
             X = x,
             Y = y,
             Rotation = rotation
+        };
+
+    private static EditorObjectInstance ColorTrigger(
+        string type,
+        int x,
+        int y,
+        int red,
+        int green,
+        int blue,
+        double duration) => new()
+        {
+            Type = type,
+            X = x,
+            Y = y,
+            Red = red,
+            Green = green,
+            Blue = blue,
+            Duration = duration
         };
 
     private static void ClickCell(

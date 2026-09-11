@@ -52,7 +52,7 @@ public sealed class EntityFrameworkEventResultsRepository(
             .GroupBy(history => new
             {
                 history.UserId,
-                history.User.DisplayName,
+                DisplayName = history.User.Username ?? history.User.DisplayName,
                 history.Action
             })
             .Select(group => new ContributorActionRow(

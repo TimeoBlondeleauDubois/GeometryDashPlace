@@ -1,10 +1,10 @@
 using GeometryDashPlace.Web.Auth;
-using GeometryDashPlace.Web.Administration;
 using GeometryDashPlace.Web.Components.Editor;
 using GeometryDashPlace.Web.Components.Editor.State;
 using GeometryDashPlace.Web.Events;
 using GeometryDashPlace.Web.Assets;
 using GeometryDashPlace.Web.Persistence;
+using GeometryDashPlace.Web.Profiles;
 using GeometryDashPlace.Web.Realtime;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
@@ -35,7 +35,7 @@ public partial class Home : ComponentBase, IDisposable
     private AuthenticationStateProvider AuthenticationStateProvider { get; set; } = default!;
 
     [Inject]
-    private IAdministrationService Administration { get; set; } = default!;
+    private IUserProfileService Profiles { get; set; } = default!;
 
     [Inject]
     protected EnvironmentAssetCatalog EnvironmentAssets { get; set; } = default!;
@@ -51,13 +51,11 @@ public partial class Home : ComponentBase, IDisposable
     protected EditorPersistenceActions Actions { get; }
     protected LevelEvent? CurrentEvent { get; private set; }
     protected bool IsAuthenticated { get; private set; }
-    protected bool IsAdmin { get; private set; }
     protected bool IsLoading { get; private set; } = true;
     protected bool IsSaving { get; private set; }
-    protected bool IsAccountMenuOpen { get; private set; }
-    protected string? UserDisplayName { get; private set; }
     protected string? StatusMessage { get; private set; }
     private Guid? _userId;
+    private UserProfile? _profile;
     private readonly CancellationTokenSource _lifetime = new();
     private IDisposable? _levelSubscription;
     private IDisposable? _previewSubscription;
@@ -84,8 +82,7 @@ public partial class Home : ComponentBase, IDisposable
             {
                 IsAuthenticated = true;
                 _userId = userId;
-                UserDisplayName = authenticationState.User.Identity?.Name;
-                IsAdmin = await Administration.IsAdminAsync(userId);
+                _profile = await Profiles.GetAsync(userId);
             }
 
             CurrentEvent = await EventRepository.GetCurrentAsync();
@@ -95,13 +92,7 @@ public partial class Home : ComponentBase, IDisposable
                 return;
             }
 
-            if (CurrentEvent.Width != EditorSession.ColumnCount ||
-                CurrentEvent.Height != EditorSession.RowCount)
-            {
-                StatusMessage = "The active event dimensions are not supported by this editor.";
-                CurrentEvent = null;
-                return;
-            }
+            Editor.SetGridSize(CurrentEvent.Width, CurrentEvent.Height);
 
             _levelSubscription = Realtime.Subscribe(
                 CurrentEvent.Id, HandleLevelChangedAsync);
@@ -137,7 +128,13 @@ public partial class Home : ComponentBase, IDisposable
         if (_lastPublishedPreview?.IsActive is true)
         {
             _ = Realtime.PublishPreviewAsync(
-                _lastPublishedPreview with { IsActive = false, Type = null });
+                _lastPublishedPreview with
+                {
+                    IsActive = false,
+                    Type = null,
+                    CursorX = null,
+                    CursorY = null
+                });
         }
         CircuitPresence.StopTracking();
         _levelSubscription?.Dispose();
@@ -150,10 +147,6 @@ public partial class Home : ComponentBase, IDisposable
     {
         _ = InvokeAsync(StateHasChanged);
     }
-
-    protected void ToggleAccountMenu() => IsAccountMenuOpen = !IsAccountMenuOpen;
-
-    protected void CloseAccountMenu() => IsAccountMenuOpen = false;
 
     private async Task ConfirmPlacementAsync()
     {
@@ -338,12 +331,6 @@ public partial class Home : ComponentBase, IDisposable
             Cooldown.SetNextActionAt(change.NextPlacementAt);
         }
 
-        if (change.Action == "moderation_restore")
-        {
-            await ReloadLevelSafelyAsync(preserveDraft: true);
-            return;
-        }
-
         if (change.Revision <= _levelRevision)
         {
             return;
@@ -375,8 +362,12 @@ public partial class Home : ComponentBase, IDisposable
             return;
         }
 
-        Editor.ApplyRemotePreview(
+        Editor.ApplyRemotePresence(
             preview.ActorUserId,
+            preview.Username ?? "PLAYER",
+            preview.AvatarUrl,
+            preview.IsActive ? preview.CursorX : null,
+            preview.IsActive ? preview.CursorY : null,
             preview.IsActive && preview.Type is not null
                 ? ToEditorObject(preview)
                 : null);
@@ -394,22 +385,25 @@ public partial class Home : ComponentBase, IDisposable
         }
 
         var pending = Editor.PendingObject;
-        var preview = pending is null
-            ? new PlacementPreview(CurrentEvent.Id, userId, IsActive: false)
-            : new PlacementPreview(
-                CurrentEvent.Id,
-                userId,
-                IsActive: true,
-                pending.Type,
-                pending.X,
-                pending.Y,
-                pending.Rotation,
-                pending.ScaleX,
-                pending.ScaleY,
-                pending.Red,
-                pending.Green,
-                pending.Blue,
-                pending.Duration);
+        var cursor = Editor.CursorPosition;
+        var preview = new PlacementPreview(
+            CurrentEvent.Id,
+            userId,
+            IsActive: pending is not null || cursor is not null,
+            Username: _profile?.Username,
+            AvatarUrl: _profile?.AvatarUrl,
+            CursorX: pending is null ? cursor?.X : null,
+            CursorY: pending is null ? cursor?.Y : null,
+            Type: pending?.Type,
+            X: pending?.X ?? 0,
+            Y: pending?.Y ?? 0,
+            Rotation: pending?.Rotation ?? 0,
+            ScaleX: pending?.ScaleX ?? 1,
+            ScaleY: pending?.ScaleY ?? 1,
+            Red: pending?.Red ?? 255,
+            Green: pending?.Green ?? 255,
+            Blue: pending?.Blue ?? 255,
+            Duration: pending?.Duration ?? 0.2);
         var now = DateTimeOffset.UtcNow;
         var changed = preview != _lastPublishedPreview;
         var heartbeatDue = preview.IsActive &&

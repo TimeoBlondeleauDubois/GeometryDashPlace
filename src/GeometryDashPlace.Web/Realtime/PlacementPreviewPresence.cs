@@ -13,7 +13,9 @@ public sealed class PlacementPreviewPresence(TimeProvider? timeProvider = null)
         var key = new PreviewKey(preview.EventId, preview.ActorUserId);
         lock (_gate)
         {
-            if (preview.IsActive && preview.Type is not null)
+            if (preview.IsActive &&
+                (preview.Type is not null ||
+                 preview.CursorX is not null && preview.CursorY is not null))
             {
                 _lastSeen[key] = _timeProvider.GetUtcNow();
             }

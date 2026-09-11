@@ -11,6 +11,24 @@ public sealed record EditorRenderObject(
 
 public sealed record FreeRotationGuide(int X, int Y, double Rotation, double RadiusCells);
 
+public sealed record EditorRemotePresence(
+    Guid UserId,
+    string Username,
+    string? AvatarUrl,
+    double? CursorX,
+    double? CursorY,
+    int? PreviewX,
+    int? PreviewY);
+
+public sealed record EditorCursorPosition(double X, double Y);
+
+public sealed record EditorSceneColor(
+    double Red,
+    double Green,
+    double Blue,
+    int TriggerX,
+    int TriggerY);
+
 public sealed record EditorRenderSnapshot(
     double Width,
     double Height,
@@ -24,6 +42,9 @@ public sealed record EditorRenderSnapshot(
     int GroundTileCells,
     int ObjectTextureUnit,
     IReadOnlyList<EditorRenderObject> Objects,
+    IReadOnlyList<EditorRemotePresence> RemotePresences,
     EditorCell? HoverCell,
     EditorCell? SelectedCell,
-    FreeRotationGuide? RotationGuide);
+    FreeRotationGuide? RotationGuide,
+    EditorSceneColor? BackgroundColor,
+    EditorSceneColor? GroundColor);

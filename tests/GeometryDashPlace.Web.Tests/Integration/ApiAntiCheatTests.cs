@@ -73,6 +73,20 @@ public sealed class ApiAntiCheatTests(PostgreSqlIntegrationFixture database)
         await AssertEmptyLevelAsync(scenario.EventId);
     }
 
+    [PostgreSqlFact]
+    public async Task IncompleteProfile_CannotPlaceAnObject()
+    {
+        var scenario = await database.CreateScenarioAsync(isProfileCompleted: false);
+        using var client = database.Application.CreateClient(scenario.UserId);
+
+        var response = await client.PutAsJsonAsync(
+            CellUrl(scenario.EventId, 1, 1),
+            new PlaceLevelCellRequest(Guid.NewGuid(), "block"));
+
+        await AssertProblemAsync(response, HttpStatusCode.Forbidden, "profile_incomplete");
+        await AssertEmptyLevelAsync(scenario.EventId);
+    }
+
     [PostgreSqlTheory]
     [MemberData(nameof(InvalidPlacements))]
     public async Task ForgedInvalidPlacement_IsRejectedWithoutConsumingTheTurn(

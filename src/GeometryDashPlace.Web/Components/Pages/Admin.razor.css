@@ -21,6 +21,7 @@
 .admin-header,
 .panel-heading,
 .admin-navigation,
+.panel-heading-actions,
 .event-form-actions,
 .admin-user-row,
 .admin-user-state {
@@ -37,6 +38,14 @@
 .admin-navigation,
 .event-form-actions,
 .admin-user-state {
+    gap: 10px;
+}
+
+.panel-heading-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     gap: 10px;
 }
 
@@ -82,7 +91,7 @@
 
 .admin-layout {
     display: grid;
-    grid-template-columns: minmax(270px, 0.75fr) minmax(420px, 1.6fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 22px;
 }
 
@@ -109,9 +118,16 @@
 }
 
 .admin-event-list {
-    max-height: 570px;
+    min-height: 0;
+    flex: 1;
     overflow-y: auto;
     padding-right: 5px;
+}
+
+.event-list-panel {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
 }
 
 .admin-event-item {
@@ -402,7 +418,7 @@
     border: 2px solid rgb(255 255 255 / 60%);
     border-radius: 9px;
     background: rgb(70 31 20 / 62%);
-    grid-template-columns: 62px 125px minmax(130px, 1fr) 150px minmax(100px, 1fr) 125px auto;
+    grid-template-columns: 62px 125px minmax(130px, 1fr) 150px minmax(100px, 1fr) 125px;
 }
 
 .moderation-history-row > span,
@@ -419,47 +435,6 @@
 .moderation-action {
     color: #fff16a !important;
     font-weight: 900;
-}
-
-.moderation-confirm-backdrop {
-    position: fixed;
-    z-index: 100;
-    inset: 0;
-    display: grid;
-    padding: 20px;
-    background: rgb(0 0 0 / 68%);
-    place-items: center;
-}
-
-.moderation-confirm-dialog {
-    box-sizing: border-box;
-    width: min(560px, 100%);
-    padding: 25px;
-    border: 4px solid white;
-    border-radius: 16px;
-    background: #a95834;
-    box-shadow: inset 0 0 0 3px #6b301d, 0 8px 0 rgb(0 0 0 / 60%);
-    color: white;
-    text-align: center;
-}
-
-.moderation-confirm-dialog p {
-    margin: 16px 0 0;
-    font-weight: 800;
-    text-shadow: 1px 2px 0 #3a170d;
-}
-
-.moderation-confirm-dialog p + p {
-    margin-top: 7px;
-    color: #ffe0ca;
-    font-size: 0.85rem;
-}
-
-.moderation-confirm-actions {
-    display: flex;
-    justify-content: center;
-    gap: 13px;
-    margin-top: 23px;
 }
 
 .admin-message {
@@ -487,13 +462,18 @@
         grid-template-columns: 1fr;
     }
 
+    .admin-event-list {
+        max-height: 570px;
+        flex: none;
+    }
+
     .admin-header {
         align-items: flex-start;
         flex-direction: column;
     }
 
     .moderation-history-row {
-        grid-template-columns: 55px 110px minmax(120px, 1fr) 135px auto;
+        grid-template-columns: 55px 110px minmax(120px, 1fr) 135px;
     }
 
     .moderation-history-row > span:nth-of-type(3),
@@ -528,7 +508,7 @@
     }
 
     .moderation-history-row {
-        grid-template-columns: 50px 1fr auto;
+        grid-template-columns: 50px 1fr;
     }
 
     .moderation-history-row > span:not(.moderation-action),
