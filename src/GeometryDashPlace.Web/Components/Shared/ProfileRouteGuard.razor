@@ -1,0 +1,58 @@
+@using GeometryDashPlace.Web.Auth
+@using GeometryDashPlace.Web.Profiles
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IUserProfileService Profiles
+@inject NavigationManager Navigation
+
+@if (_canRender)
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public RouteData RouteData { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public RenderFragment ChildContent { get; set; } = null!;
+
+    private bool _canRender;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _canRender = false;
+        var isProfileSetup = RouteData.PageType == typeof(Pages.ProfileSetup);
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (!AuthenticatedUser.TryGetUserId(authenticationState.User, out var userId))
+        {
+            if (isProfileSetup)
+            {
+                var loginUrl = $"/login/google?returnUrl={Uri.EscapeDataString(CurrentLocalUrl)}";
+                Navigation.NavigateTo(loginUrl, forceLoad: true);
+                return;
+            }
+
+            _canRender = true;
+            return;
+        }
+
+        var profile = await Profiles.GetAsync(userId);
+        if (profile?.IsCompleted != true && !isProfileSetup)
+        {
+            var setupUrl = $"/profile/setup?returnUrl={Uri.EscapeDataString(CurrentLocalUrl)}";
+            Navigation.NavigateTo(setupUrl, replace: true);
+            return;
+        }
+
+        _canRender = true;
+    }
+
+    private string CurrentLocalUrl
+    {
+        get
+        {
+            var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+            return string.IsNullOrWhiteSpace(relative) ? "/" : $"/{relative}";
+        }
+    }
+}

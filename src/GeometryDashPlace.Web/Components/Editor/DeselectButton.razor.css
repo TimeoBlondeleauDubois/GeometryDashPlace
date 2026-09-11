@@ -1,0 +1,54 @@
+.deselect-area {
+    position: fixed;
+    z-index: 7;
+    top: calc((100% - var(--toolbar-height)) / 2);
+    right: calc(clamp(12px, 1.6vw, 30px) + clamp(68px, 6vw, 94px) + clamp(8px, 1vw, 14px));
+    transform: translateY(-50%);
+}
+
+.deselect-button {
+    appearance: none;
+    box-sizing: border-box;
+    display: block;
+    width: clamp(68px, 6vw, 94px);
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    filter: drop-shadow(0 5px 0 rgb(0 0 0 / 58%));
+    cursor: pointer;
+    transition: transform 70ms ease, filter 70ms ease;
+}
+
+.deselect-button:hover {
+    transform: scale(1.06);
+    filter: brightness(1.12) drop-shadow(0 5px 0 rgb(0 0 0 / 58%));
+}
+
+.deselect-button:active {
+    transform: scale(0.94);
+}
+
+.deselect-button:focus-visible {
+    outline: 3px solid #fff36a;
+    outline-offset: 3px;
+}
+
+.deselect-button img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+@media (max-width: 760px) {
+    .deselect-area {
+        right: 60px;
+    }
+
+    .deselect-button {
+        width: 44px;
+        filter: drop-shadow(0 3px 0 rgb(0 0 0 / 58%));
+    }
+}

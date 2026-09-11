@@ -36,7 +36,7 @@ public sealed class EntityFrameworkLevelRepository(
             .Where(cell => cell.EventId == eventId)
             .OrderBy(cell => cell.X)
             .ThenBy(cell => cell.Y)
-            .Select(cell => ToLevelCell(cell, cell.Author.DisplayName))
+            .Select(cell => ToLevelCell(cell, cell.Author.Username ?? cell.Author.DisplayName))
             .ToListAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
         return new LevelState(eventId, revision, cells);
@@ -107,6 +107,8 @@ public sealed class EntityFrameworkLevelRepository(
                 StatusCodes.Status404NotFound);
         }
 
+        _ = await RequireUserAsync(context, userId, cancellationToken);
+
         var nextPlacementAt = await context.UserEventStates
             .AsNoTracking()
             .Where(state => state.EventId == eventId && state.UserId == userId)
@@ -155,7 +157,7 @@ public sealed class EntityFrameworkLevelRepository(
                 entity, userId, now, request.ConfirmRecentOverwrite);
             var previous = entity is null
                 ? null
-                : ToLevelCell(entity, entity.Author.DisplayName);
+                : ToLevelCell(entity, entity.Author.Username ?? entity.Author.DisplayName);
             var revision = ++levelEvent.CurrentRevision;
             var action = entity is null ? "place" : "replace";
             entity ??= CreateCell(eventId, x, y, userId, request);
@@ -165,7 +167,7 @@ public sealed class EntityFrameworkLevelRepository(
             }
 
             ApplyPlacement(entity, userId, request, revision, now);
-            var cell = ToLevelCell(entity, user.DisplayName);
+            var cell = ToLevelCell(entity, user.Username ?? user.DisplayName);
             context.PlacementHistory.Add(CreateHistory(
                 eventId, userId, request.RequestId, x, y, action,
                 revision, previous, cell));
@@ -222,7 +224,7 @@ public sealed class EntityFrameworkLevelRepository(
                 ?? throw Error(
                     "cell_not_found", "There is no object in this cell.",
                     StatusCodes.Status404NotFound);
-            var previous = ToLevelCell(entity, entity.Author.DisplayName);
+            var previous = ToLevelCell(entity, entity.Author.Username ?? entity.Author.DisplayName);
             var revision = ++levelEvent.CurrentRevision;
             context.LevelCells.Remove(entity);
             context.PlacementHistory.Add(CreateHistory(
@@ -303,10 +305,10 @@ public sealed class EntityFrameworkLevelRepository(
                     cancellationToken);
             ValidateRecentOverwrite(
                 replaced, userId, now, request.ConfirmRecentOverwrite);
-            var previous = ToLevelCell(source, source.Author.DisplayName);
+            var previous = ToLevelCell(source, source.Author.Username ?? source.Author.DisplayName);
             var replacedCell = replaced is null
                 ? null
-                : ToLevelCell(replaced, replaced.Author.DisplayName);
+                : ToLevelCell(replaced, replaced.Author.Username ?? replaced.Author.DisplayName);
             var revision = ++levelEvent.CurrentRevision;
             context.LevelCells.Remove(source);
             LevelCellEntity target;
@@ -322,7 +324,7 @@ public sealed class EntityFrameworkLevelRepository(
             }
 
             ApplyPlacement(target, userId, placement, revision, now);
-            var cell = ToLevelCell(target, user.DisplayName);
+            var cell = ToLevelCell(target, user.Username ?? user.DisplayName);
             var action = replaced is null ? "move" : "move_replace";
             context.PlacementHistory.Add(CreateHistory(
                 eventId, userId, request.RequestId,
@@ -381,6 +383,12 @@ public sealed class EntityFrameworkLevelRepository(
         {
             throw Error(
                 "user_banned", "This user cannot modify the level.",
+                StatusCodes.Status403Forbidden);
+        }
+        if (!user.IsProfileCompleted)
+        {
+            throw Error(
+                "profile_incomplete", "Complete your profile before modifying the level.",
                 StatusCodes.Status403Forbidden);
         }
 
@@ -544,7 +552,7 @@ public sealed class EntityFrameworkLevelRepository(
                 .Where(cell => cell.EventId == eventId)
                 .OrderBy(cell => cell.X)
                 .ThenBy(cell => cell.Y)
-                .Select(cell => ToLevelCell(cell, cell.Author.DisplayName))
+                .Select(cell => ToLevelCell(cell, cell.Author.Username ?? cell.Author.DisplayName))
                 .ToListAsync();
             context.LevelSnapshots.Add(new LevelSnapshotEntity
             {

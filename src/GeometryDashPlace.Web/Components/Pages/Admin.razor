@@ -249,7 +249,7 @@
         {
             <section class="admin-panel moderation-panel">
                 <div class="panel-heading">
-                    <GeometryDashText Text="LEVEL MODERATION" Height="24" />
+                    <GeometryDashText Text="PLACEMENT HISTORY" Height="24" />
                     <span class="moderation-revision">REVISION @_selectedEvent.Revision</span>
                 </div>
 
@@ -282,12 +282,6 @@
                                     <time datetime="@change.CreatedAt.ToString("O")">
                                         @FormatModerationDate(change.CreatedAt)
                                     </time>
-                                    <button type="button"
-                                            class="gd-button compact-button gd-button-danger"
-                                            disabled="@_isSaving"
-                                            @onclick="() => QueueRevert(change)">
-                                        <GeometryDashText Text="UNDO" Height="12" />
-                                    </button>
                                 </article>
                             }
                         }
@@ -296,32 +290,6 @@
             </section>
         }
 
-        @if (_pendingModeration is not null)
-        {
-            <div class="moderation-confirm-backdrop">
-                <section class="moderation-confirm-dialog"
-                         role="alertdialog"
-                         aria-modal="true"
-                         aria-labelledby="moderation-confirm-title">
-                    <span id="moderation-confirm-title">
-                        <GeometryDashText Text="CONFIRM MODERATION" Height="24" Gold="true" />
-                    </span>
-                    <p>@_pendingModeration.Message</p>
-                    <p>A new audited revision will be created. Existing history will not be deleted.</p>
-                    <div class="moderation-confirm-actions">
-                        <button type="button" class="gd-button gd-button-blue" @onclick="CancelModeration">
-                            <GeometryDashText Text="CANCEL" Height="14" />
-                        </button>
-                        <button type="button"
-                                class="gd-button gd-button-danger"
-                                disabled="@_isSaving"
-                                @onclick="ConfirmModerationAsync">
-                            <GeometryDashText Text="CONFIRM" Height="14" />
-                        </button>
-                    </div>
-                </section>
-            </div>
-        }
     }
 </main>
 
@@ -339,7 +307,6 @@
     private bool _isSaving;
     private bool _hasError;
     private string? _message;
-    private PendingModeration? _pendingModeration;
 
     protected override async Task OnInitializedAsync()
     {
@@ -383,7 +350,6 @@
         _selectedEventId = null;
         _selectedEvent = null;
         _placementHistory = [];
-        _pendingModeration = null;
         _form.Reset();
         ClearMessage();
     }
@@ -518,47 +484,6 @@
         }
     }
 
-    private void QueueRevert(AdminPlacementHistory change)
-    {
-        _pendingModeration = new PendingModeration(
-            change.Revision,
-            $"Undo revision {change.Revision} made by {change.UserDisplayName}?");
-        ClearMessage();
-    }
-
-    private void CancelModeration() => _pendingModeration = null;
-
-    private async Task ConfirmModerationAsync()
-    {
-        var pending = _pendingModeration;
-        if (_isSaving || pending is null || _selectedEventId is not { } eventId)
-        {
-            return;
-        }
-
-        _isSaving = true;
-        ClearMessage();
-        try
-        {
-            var result = await Administration.RevertRevisionAsync(
-                _actorUserId, eventId, pending.Revision);
-            _pendingModeration = null;
-            _message = $"Revision {pending.Revision} was undone. {result.ChangedCells} cells changed.";
-            await ReloadAsync();
-            if (_selectedEvent is not null)
-            {
-                _form.Load(_selectedEvent);
-            }
-        }
-        catch (AdministrationException exception)
-        {
-            ShowError(exception.Message);
-        }
-        finally
-        {
-            _isSaving = false;
-        }
-    }
 
     private async Task SearchUsersAsync()
     {
@@ -724,7 +649,4 @@
             Description);
     }
 
-    private sealed record PendingModeration(
-        long Revision,
-        string Message);
 }

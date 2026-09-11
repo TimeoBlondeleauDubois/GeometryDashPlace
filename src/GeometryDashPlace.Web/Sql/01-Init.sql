@@ -8,7 +8,12 @@ CREATE TABLE IF NOT EXISTS users
     google_subject varchar(255) NOT NULL,
     email varchar(320) NOT NULL,
     display_name varchar(100) NOT NULL,
+    username varchar(20),
+    normalized_username varchar(20),
     avatar_url text,
+    avatar_png bytea,
+    google_avatar_url text,
+    is_profile_completed boolean NOT NULL DEFAULT false,
     is_email_verified boolean NOT NULL DEFAULT false,
     is_admin boolean NOT NULL DEFAULT false,
     is_banned boolean NOT NULL DEFAULT false,
@@ -22,6 +27,10 @@ CREATE TABLE IF NOT EXISTS users
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower
     ON users (lower(email));
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_normalized_username
+    ON users (normalized_username)
+    WHERE normalized_username IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS events
 (

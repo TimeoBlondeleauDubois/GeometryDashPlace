@@ -171,18 +171,68 @@ public sealed class EditorSessionTests
         var editor = CreateEditor();
         var remoteUserId = Guid.NewGuid();
 
-        editor.ApplyRemotePreview(remoteUserId, Placed("spike", 7, 3));
+        editor.ApplyRemotePresence(
+            remoteUserId,
+            "RemotePlayer",
+            "/avatars/test.png",
+            7.25,
+            3.75,
+            Placed("spike", 7, 3));
 
-        var ghost = Assert.Single(editor.CreateRenderSnapshot().Objects);
+        var snapshot = editor.CreateRenderSnapshot();
+        var ghost = Assert.Single(snapshot.Objects);
         Assert.Equal("spike", ghost.CatalogType);
         Assert.Equal(7, ghost.X);
         Assert.Equal(3, ghost.Y);
         Assert.Equal(0.3, ghost.Opacity);
         Assert.Equal(0, editor.ObjectCount);
+        var presence = Assert.Single(snapshot.RemotePresences);
+        Assert.Equal("RemotePlayer", presence.Username);
+        Assert.Equal("/avatars/test.png", presence.AvatarUrl);
+        Assert.Equal(7.25, presence.CursorX);
+        Assert.Equal(3.75, presence.CursorY);
 
-        editor.ApplyRemotePreview(remoteUserId, null);
+        editor.ApplyRemotePresence(remoteUserId, "RemotePlayer", null, null, null, null);
 
         Assert.Empty(editor.CreateRenderSnapshot().Objects);
+        Assert.Empty(editor.CreateRenderSnapshot().RemotePresences);
+    }
+
+    [Fact]
+    public void Deselect_CancelsThePendingPlacementAndCatalogSelection()
+    {
+        var editor = CreateEditor();
+        editor.SelectCatalogObject("spike");
+        ClickCell(editor, 5, 2);
+
+        Assert.True(editor.CanDeselect);
+        Assert.NotNull(editor.PendingObject);
+
+        editor.Deselect();
+
+        Assert.False(editor.CanDeselect);
+        Assert.Null(editor.PendingObject);
+        Assert.Null(editor.SelectedObjectType);
+        Assert.Null(editor.SelectedCell);
+        Assert.Empty(editor.CreateRenderSnapshot().Objects);
+    }
+
+    [Fact]
+    public void Deselect_CancelsEditingWithoutRemovingTheConfirmedObject()
+    {
+        var editor = CreateEditor();
+        editor.LoadConfirmedObjects([Placed("block", 2, 3)]);
+        editor.SetMode(EditorMode.Edit);
+        ClickCell(editor, 2, 3);
+
+        editor.Deselect();
+
+        Assert.Null(editor.PendingObject);
+        Assert.Equal(1, editor.ObjectCount);
+        var rendered = Assert.Single(editor.CreateRenderSnapshot().Objects);
+        Assert.Equal("block", rendered.CatalogType);
+        Assert.Equal(2, rendered.X);
+        Assert.Equal(3, rendered.Y);
     }
 
     [Fact]

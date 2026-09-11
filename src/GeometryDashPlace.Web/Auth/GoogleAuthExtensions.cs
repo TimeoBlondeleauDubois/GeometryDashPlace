@@ -194,6 +194,16 @@ public static class GoogleAuthExtensions
             AuthenticatedUser.UserIdClaim,
             synchronizedUser.Id.ToString()));
         context.Identity.AddClaim(new Claim(ClaimTypes.Name, synchronizedUser.DisplayName));
+        if (!synchronizedUser.IsProfileCompleted)
+        {
+            var returnUrl = IsLocalReturnUrl(context.Properties.RedirectUri)
+                ? context.Properties.RedirectUri!
+                : "/";
+            context.Properties.RedirectUri = QueryHelpers.AddQueryString(
+                "/profile/setup",
+                "returnUrl",
+                returnUrl);
+        }
         context.Properties.IsPersistent = true;
         context.Properties.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30);
     }

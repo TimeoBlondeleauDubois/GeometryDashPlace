@@ -63,6 +63,25 @@ public sealed class PlacementPreviewPresenceTests
         Assert.Empty(presence.TakeExpired());
     }
 
+    [Fact]
+    public void CursorOnlyPresence_IsTrackedAndExpires()
+    {
+        var clock = new ManualTimeProvider(DateTimeOffset.UtcNow);
+        var presence = new PlacementPreviewPresence(clock);
+        var preview = new PlacementPreview(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            IsActive: true,
+            Username: "Player",
+            CursorX: 12.5,
+            CursorY: 4.25);
+
+        presence.Observe(preview);
+        clock.Advance(PlacementPreviewPresence.Lifetime);
+
+        Assert.Single(presence.TakeExpired());
+    }
+
     private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
     {
         private DateTimeOffset _utcNow = utcNow;

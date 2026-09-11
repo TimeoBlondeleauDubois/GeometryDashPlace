@@ -99,6 +99,7 @@ jobs:
               Sql/04-PlacementMoves.sql \
               Sql/05-EventSnapshotSchedule.sql \
               Sql/06-EventEnvironment.sql \
+              Sql/07-UserProfiles.sql \
               Sql/02-ObjectTypes.sql; do
               echo "Applying $script"
               docker compose -f docker-compose.prod.yml exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < "$script"
