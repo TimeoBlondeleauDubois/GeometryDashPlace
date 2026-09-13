@@ -1,0 +1,112 @@
+.badge-unlock {
+    position: fixed;
+    z-index: 1600;
+    top: 92px;
+    left: 50%;
+    display: grid;
+    grid-template-columns: 74px minmax(220px, 1fr);
+    align-items: center;
+    width: min(460px, calc(100vw - 28px));
+    min-height: 116px;
+    padding: 15px 42px 15px 17px;
+    overflow: hidden;
+    border: 4px solid #fff;
+    border-radius: 17px;
+    background: linear-gradient(155deg, #a76035 0%, #7d351c 100%);
+    box-shadow: 0 0 0 4px #16100d, 0 9px 0 rgb(0 0 0 / 48%), 0 14px 34px rgb(0 0 0 / 55%);
+    transform: translateX(-50%);
+    animation: badge-arrive 260ms cubic-bezier(.2, .9, .25, 1.2);
+}
+
+.badge-unlock::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border: 2px solid rgb(255 211 115 / 72%);
+    border-radius: 10px;
+    pointer-events: none;
+}
+
+.badge-unlock-rays {
+    position: absolute;
+    left: -9px;
+    width: 125px;
+    height: 125px;
+    border-radius: 50%;
+    opacity: .3;
+    background: repeating-conic-gradient(#fff36b 0deg 12deg, transparent 12deg 25deg);
+    animation: badge-rays 8s linear infinite;
+}
+
+.badge-unlock-medal {
+    position: relative;
+    display: grid;
+    width: 62px;
+    aspect-ratio: 1;
+    border: 4px solid #fff6a4;
+    border-radius: 50%;
+    background: linear-gradient(#fff358, #ff9e00);
+    color: #fff;
+    font-size: 2.25rem;
+    line-height: 1;
+    place-items: center;
+    text-shadow: 0 3px 0 #9d4e00;
+    box-shadow: 0 0 0 4px #381900, 0 5px 0 rgb(0 0 0 / 42%);
+}
+
+.badge-unlock-copy {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 5px;
+    text-align: center;
+}
+
+.badge-unlock-copy p {
+    margin: 1px 0 0;
+    color: #fff;
+    font-size: .76rem;
+    font-weight: 800;
+    text-shadow: 0 2px 1px #4b1c0d;
+}
+
+.badge-unlock-close {
+    position: absolute;
+    z-index: 2;
+    top: 7px;
+    right: 8px;
+    width: 29px;
+    height: 29px;
+    padding: 0;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: linear-gradient(#ff654d, #c82420);
+    color: #fff;
+    cursor: pointer;
+    font: 900 1.25rem/1 Arial, sans-serif;
+    box-shadow: 0 2px 0 #67110d;
+}
+
+@keyframes badge-arrive {
+    from { opacity: 0; transform: translate(-50%, -30px) scale(.86); }
+    to { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+
+@keyframes badge-rays {
+    to { transform: rotate(360deg); }
+}
+
+@media (max-width: 540px) {
+    .badge-unlock {
+        top: 76px;
+        grid-template-columns: 54px minmax(0, 1fr);
+        min-height: 98px;
+        padding: 12px 34px 12px 14px;
+    }
+
+    .badge-unlock-medal {
+        width: 46px;
+        border-width: 3px;
+        font-size: 1.65rem;
+    }
+}
