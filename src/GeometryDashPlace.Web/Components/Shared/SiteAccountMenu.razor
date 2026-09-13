@@ -1,8 +1,12 @@
 @using GeometryDashPlace.Web.Auth
+@using GeometryDashPlace.Web.Events
 @using GeometryDashPlace.Web.Profiles
+@implements IDisposable
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IUserProfileService Profiles
+@inject ILevelEventRepository EventRepository
+@inject EventLifecycleNotifier EventLifecycle
 
 <details class="site-menu">
     <summary class="site-menu-toggle" aria-label="Toggle account and navigation menu">
@@ -19,6 +23,10 @@
         </a>
         <a class="site-menu-action site-events-action" href="/events">
             <GeometryDashText Text="EVENTS" Height="14" />
+            @if (EventNotice is { } notice)
+            {
+                <span class="site-event-notice @(notice == "LIVE" ? "is-live" : null)">@notice</span>
+            }
         </a>
         <a class="site-menu-action site-leaderboard-action" href="/leaderboard">
             <GeometryDashText Text="LEADERBOARD" Height="13" />
@@ -76,13 +84,72 @@
 
 @code {
     private UserProfile? _profile;
+    private LevelEvent? _currentEvent;
+    private LevelEvent? _nextEvent;
+    private IDisposable? _eventLifecycleSubscription;
 
     protected override async Task OnInitializedAsync()
     {
-        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
-        if (AuthenticatedUser.TryGetUserId(authenticationState.User, out var userId))
+        try
         {
-            _profile = await Profiles.GetAsync(userId);
+            var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            if (AuthenticatedUser.TryGetUserId(authenticationState.User, out var userId))
+            {
+                _profile = await Profiles.GetAsync(userId);
+            }
+        }
+        catch
+        {
+        }
+
+        await RefreshEventNoticeAsync();
+        _eventLifecycleSubscription = EventLifecycle.Subscribe(HandleEventLifecycleChangedAsync);
+    }
+
+    public void Dispose() => _eventLifecycleSubscription?.Dispose();
+
+    private Task HandleEventLifecycleChangedAsync() => InvokeAsync(async () =>
+    {
+        var previousNotice = EventNotice;
+        await RefreshEventNoticeAsync();
+        if (previousNotice != EventNotice)
+        {
+            StateHasChanged();
+        }
+    });
+
+    private async Task RefreshEventNoticeAsync()
+    {
+        try
+        {
+            var currentTask = EventRepository.GetCurrentAsync();
+            var upcomingTask = EventRepository.GetUpcomingAsync();
+            await Task.WhenAll(currentTask, upcomingTask);
+            _currentEvent = await currentTask;
+            _nextEvent = (await upcomingTask).FirstOrDefault();
+        }
+        catch
+        {
+            _currentEvent = null;
+            _nextEvent = null;
+        }
+    }
+
+    private string? EventNotice
+    {
+        get
+        {
+            if (_currentEvent is not null)
+            {
+                return "LIVE";
+            }
+
+            if (_nextEvent?.StartsAt is not { } startsAt)
+            {
+                return null;
+            }
+
+            return EventCountdown.Notice(startsAt, DateTimeOffset.UtcNow);
         }
     }
 

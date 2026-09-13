@@ -1,0 +1,12 @@
+<article class="upcoming-stat">
+    <span>@Label</span>
+    <strong>@Value</strong>
+</article>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Value { get; set; } = string.Empty;
+}
