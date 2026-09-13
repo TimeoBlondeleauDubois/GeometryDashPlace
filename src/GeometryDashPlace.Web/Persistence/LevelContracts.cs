@@ -32,6 +32,7 @@ public sealed record LevelRevisionDetails(
     LevelCell? Cell,
     Guid AuthorUserId,
     string Author,
+    string? AuthorUsername,
     string? AuthorAvatarUrl,
     DateTimeOffset PlacedAt);
 

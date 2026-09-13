@@ -124,6 +124,7 @@ public sealed class EntityFrameworkLevelRepository(
             change.NewObject,
             change.UserId,
             change.User.Username ?? change.User.DisplayName,
+            change.User.Username,
             change.User.AvatarUrl,
             change.PlacedAt)).ToArray();
     }

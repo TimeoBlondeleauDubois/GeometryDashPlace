@@ -50,6 +50,11 @@
     box-shadow: 0 4px 0 #075364;
 }
 
+.events-ranking-button {
+    background: linear-gradient(180deg, #d46cff, #8a32cb);
+    box-shadow: 0 4px 0 #481072;
+}
+
 .events-logout-button {
     background: linear-gradient(180deg, #ef6161, #b82c2c);
     box-shadow: 0 4px 0 #681414;

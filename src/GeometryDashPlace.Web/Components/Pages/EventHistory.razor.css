@@ -193,6 +193,20 @@
     box-shadow: 0 3px 0 rgb(0 0 0 / 50%);
 }
 
+.history-author-link {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    flex: 1;
+    gap: 10px;
+    color: white;
+    text-decoration: none;
+}
+
+.history-author-link[href]:hover strong {
+    color: #fff16a;
+}
+
 .history-author-avatar-default {
     display: grid;
     background: linear-gradient(145deg, #30e1e8, #11649e);

@@ -169,9 +169,43 @@
 
 .contributor-name {
     display: grid;
-    min-width: 180px;
+    min-width: 0;
     flex: 1;
     gap: 3px;
+}
+
+.contributor-identity {
+    display: flex;
+    min-width: 220px;
+    align-items: center;
+    flex: 1;
+    gap: 10px;
+    color: white;
+    text-decoration: none;
+}
+
+.contributor-identity:hover strong {
+    color: #fff16a;
+}
+
+.contributor-identity ::deep .contributor-avatar {
+    box-sizing: border-box;
+    display: grid;
+    flex: 0 0 40px;
+    width: 40px;
+    height: 40px;
+    border: 2px solid white;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #30e1e8, #11649e);
+    object-fit: cover;
+    place-items: center;
+    box-shadow: 0 2px 0 rgb(0 0 0 / 45%);
+}
+
+.contributor-identity ::deep .contributor-avatar-default {
+    font-size: .9rem;
+    font-weight: 900;
+    text-shadow: 1px 1px 0 #061a33;
 }
 
 .contributor-name span {

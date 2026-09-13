@@ -120,10 +120,26 @@
                         var contributor = _results.Contributors[index];
                         <article class="contributor-row">
                             <strong class="contributor-rank">#@(index + 1)</strong>
-                            <div class="contributor-name">
-                                <strong>@contributor.DisplayName</strong>
-                                <span>Last contribution @FormatDate(contributor.LastContributionAt)</span>
-                            </div>
+                            @if (!string.IsNullOrWhiteSpace(contributor.Username))
+                            {
+                                <a class="contributor-identity" href="@($"/players/{contributor.Username}")">
+                                    <ContributorAvatar Contributor="@contributor" />
+                                    <span class="contributor-name">
+                                        <strong>@contributor.DisplayName</strong>
+                                        <span>Last contribution @FormatDate(contributor.LastContributionAt)</span>
+                                    </span>
+                                </a>
+                            }
+                            else
+                            {
+                                <div class="contributor-identity">
+                                    <ContributorAvatar Contributor="@contributor" />
+                                    <span class="contributor-name">
+                                        <strong>@contributor.DisplayName</strong>
+                                        <span>Last contribution @FormatDate(contributor.LastContributionAt)</span>
+                                    </span>
+                                </div>
+                            }
                             <span class="contributor-total">@contributor.Actions.Total changes</span>
                             <span>@contributor.Actions.Placements placed</span>
                             <span>@(contributor.Actions.Moves + contributor.Actions.MoveReplacements) moved</span>

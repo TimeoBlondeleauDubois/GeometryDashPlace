@@ -13,6 +13,8 @@ public sealed record EventActionTotals(
 public sealed record EventContributorResult(
     Guid UserId,
     string DisplayName,
+    string? Username,
+    string? AvatarUrl,
     EventActionTotals Actions,
     DateTimeOffset FirstContributionAt,
     DateTimeOffset LastContributionAt);

@@ -1,0 +1,190 @@
+@page "/players/{Username}"
+@rendermode InteractiveServer
+@using System.Globalization
+@using GeometryDashPlace.Web.Profiles
+@inject IPlayerStatisticsService Statistics
+@inject ILogger<PlayerProfile> Logger
+
+<PageTitle>@(_profile is null ? "Player profile" : $"{_profile.Username}'s profile") - Geometry Dash Place</PageTitle>
+
+<RotatingPageBackground />
+
+<main class="player-page">
+    @if (_isLoading)
+    {
+        <section class="player-state">
+            <GeometryDashText Text="LOADING PROFILE" Height="28" />
+        </section>
+    }
+    else if (_profile is null)
+    {
+        <section class="player-state">
+            <GeometryDashText Text="PLAYER NOT FOUND" Height="28" />
+            <a class="player-button" href="/leaderboard">
+                <GeometryDashText Text="LEADERBOARD" Height="15" />
+            </a>
+        </section>
+    }
+    else
+    {
+        <header class="player-hero">
+            <div class="player-identity">
+                @if (!string.IsNullOrWhiteSpace(_profile.AvatarUrl))
+                {
+                    <img class="player-avatar" src="@_profile.AvatarUrl" alt="" referrerpolicy="no-referrer" />
+                }
+                else
+                {
+                    <span class="player-avatar player-avatar-default" aria-hidden="true">@AvatarInitial</span>
+                }
+                <div>
+                    <GeometryDashText Text="@_profile.Username" Height="38" Gold="true" />
+                    <p>Joined @FormatDate(_profile.JoinedAt)</p>
+                </div>
+            </div>
+            <nav class="player-navigation" aria-label="Player navigation">
+                <a class="player-button player-button-blue" href="/events">
+                    <GeometryDashText Text="EVENTS" Height="15" />
+                </a>
+                <a class="player-button" href="/leaderboard">
+                    <GeometryDashText Text="LEADERBOARD" Height="15" />
+                </a>
+            </nav>
+        </header>
+
+        <section class="player-summary" aria-label="Player statistics">
+            <StatCard Label="GLOBAL RANK" Value="@RankLabel(_profile.GlobalRank)" />
+            <StatCard Label="CONTRIBUTIONS" Value="@_profile.Actions.Total.ToString(CultureInfo.InvariantCulture)" />
+            <StatCard Label="EVENTS" Value="@_profile.Events.Count.ToString(CultureInfo.InvariantCulture)" />
+            <StatCard Label="PLACED" Value="@_profile.Actions.Placements.ToString(CultureInfo.InvariantCulture)" />
+            <StatCard Label="MODIFIED" Value="@ModifiedCount.ToString(CultureInfo.InvariantCulture)" />
+            <StatCard Label="DELETED" Value="@_profile.Actions.Deletions.ToString(CultureInfo.InvariantCulture)" />
+        </section>
+
+        <section class="player-panel">
+            <div class="player-panel-title">
+                <GeometryDashText Text="BADGES" Height="24" />
+            </div>
+            @if (_profile.Badges.Count == 0)
+            {
+                <p class="player-empty">The first badge unlocks after one contribution.</p>
+            }
+            else
+            {
+                <div class="badge-grid">
+                    @foreach (var badge in _profile.Badges)
+                    {
+                        <article class="player-badge player-badge-@badge.Key">
+                            <span class="badge-medal" aria-hidden="true">★</span>
+                            <strong>@badge.Name</strong>
+                            <span>@badge.Description</span>
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="player-panel">
+            <div class="player-panel-title">
+                <GeometryDashText Text="EVENT CONTRIBUTIONS" Height="24" />
+            </div>
+            @if (_profile.Events.Count == 0)
+            {
+                <p class="player-empty">No event contribution yet.</p>
+            }
+            else
+            {
+                <div class="contribution-list">
+                    @foreach (var contribution in _profile.Events)
+                    {
+                        <a class="contribution-row" href="@($"/events/{contribution.EventSlug}/results")">
+                            <span class="contribution-rank">#@contribution.Rank</span>
+                            <span class="contribution-event">
+                                <strong>@contribution.EventName</strong>
+                                <span>Last action @FormatDateTime(contribution.LastContributionAt)</span>
+                            </span>
+                            <span><strong>@contribution.Actions.Total</strong> changes</span>
+                            <span>@contribution.Actions.Placements placed</span>
+                            <span>@ModifiedCountFor(contribution.Actions) modified</span>
+                        </a>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="player-panel">
+            <div class="player-panel-title">
+                <GeometryDashText Text="RECENT ACTIVITY" Height="24" />
+            </div>
+            @if (_profile.RecentActivity.Count == 0)
+            {
+                <p class="player-empty">No recent activity.</p>
+            }
+            else
+            {
+                <div class="activity-list">
+                    @foreach (var activity in _profile.RecentActivity)
+                    {
+                        <a class="activity-row" href="@($"/events/{activity.EventSlug}")">
+                            <span class="activity-action activity-action-@activity.Action">@ActionLabel(activity.Action)</span>
+                            <span class="activity-description">
+                                <strong>@(activity.ObjectType ?? "object")</strong>
+                                <span>in @activity.EventName at (@activity.X, @activity.Y)</span>
+                            </span>
+                            <time datetime="@activity.OccurredAt.ToString("O")">@FormatDateTime(activity.OccurredAt)</time>
+                        </a>
+                    }
+                </div>
+            }
+        </section>
+    }
+</main>
+
+@code {
+    private PublicPlayerProfile? _profile;
+    private bool _isLoading = true;
+
+    [Parameter]
+    public string Username { get; set; } = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _profile = await Statistics.GetProfileAsync(Username);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Unable to load public player profile {Username}.", Username);
+            _profile = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private long ModifiedCount => _profile is null ? 0 : ModifiedCountFor(_profile.Actions);
+    private string AvatarInitial => string.IsNullOrWhiteSpace(_profile?.Username)
+        ? "?"
+        : _profile.Username[0].ToString().ToUpperInvariant();
+
+    private static long ModifiedCountFor(GeometryDashPlace.Web.Events.EventActionTotals actions) =>
+        actions.Replacements + actions.Moves + actions.MoveReplacements;
+
+    private static string RankLabel(long rank) => rank == 0 ? "-" : $"#{rank}";
+    private static string FormatDate(DateTimeOffset value) =>
+        value.LocalDateTime.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
+    private static string FormatDateTime(DateTimeOffset value) =>
+        value.LocalDateTime.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+    private static string ActionLabel(string action) => action switch
+    {
+        "place" => "PLACED",
+        "replace" => "REPLACED",
+        "delete" => "DELETED",
+        "move" => "MOVED",
+        "move_replace" => "MOVED + REPLACED",
+        _ => action.ToUpperInvariant()
+    };
+}
