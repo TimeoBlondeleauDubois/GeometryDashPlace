@@ -1,4 +1,5 @@
 using GeometryDashPlace.Web.Events;
+using GeometryDashPlace.Web.Profiles;
 
 namespace GeometryDashPlace.Web.Administration;
 
@@ -32,9 +33,16 @@ public sealed class EventLifecycleWorker(
             await using var scope = scopeFactory.CreateAsyncScope();
             var lifecycle = scope.ServiceProvider.GetRequiredService<IEventLifecycleService>();
             var closed = await lifecycle.CloseExpiredEventsAsync(cancellationToken);
+            var badges = scope.ServiceProvider.GetRequiredService<IPlayerBadgeService>();
+            var awardedBadges = await badges.AwardCompletedEventBadgesAsync(cancellationToken);
             if (closed > 0)
             {
                 logger.LogInformation("Automatically closed {EventCount} expired events.", closed);
+            }
+            if (awardedBadges > 0)
+            {
+                logger.LogInformation(
+                    "Awarded {BadgeCount} event ranking badges.", awardedBadges);
             }
             await lifecycleNotifier.PublishAsync();
         }

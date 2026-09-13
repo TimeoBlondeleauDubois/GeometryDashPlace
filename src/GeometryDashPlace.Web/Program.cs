@@ -43,10 +43,13 @@ builder.Services.AddSingleton<EnvironmentAssetCatalog>();
 
 builder.Services.AddDbContextFactory<GeometryDashPlaceDbContext>(
     options => options.UseNpgsql(connectionString));
-builder.Services.AddScoped<ILevelRepository, EntityFrameworkLevelRepository>();
+builder.Services.AddScoped<EntityFrameworkLevelRepository>();
+builder.Services.AddScoped<ILevelRepository, BadgeAwardingLevelRepository>();
 builder.Services.AddScoped<ILevelEventRepository, EntityFrameworkLevelEventRepository>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IPlayerStatisticsService, PlayerStatisticsService>();
+builder.Services.AddScoped<IPlayerBadgeService, PlayerBadgeService>();
+builder.Services.AddScoped<PlayerBadgeNotificationDispatcher>();
 builder.Services.AddScoped<IEventResultsRepository, EntityFrameworkEventResultsRepository>();
 builder.Services.AddSingleton<IGildPlaceConverter, GildPlaceConverter>();
 builder.Services.AddScoped<ILevelExportService, EntityFrameworkLevelExportService>();

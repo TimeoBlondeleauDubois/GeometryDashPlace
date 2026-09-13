@@ -25,7 +25,10 @@ public sealed record PlayerRecentActivity(
 public sealed record PlayerBadge(
     string Key,
     string Name,
-    string Description);
+    string Description,
+    DateTimeOffset? UnlockedAt = null,
+    string? EventSlug = null,
+    string? EventName = null);
 
 public sealed record PublicPlayerProfile(
     Guid UserId,
@@ -68,7 +71,8 @@ public interface IPlayerStatisticsService
 }
 
 public sealed class PlayerStatisticsService(
-    IDbContextFactory<GeometryDashPlaceDbContext> contextFactory) : IPlayerStatisticsService
+    IDbContextFactory<GeometryDashPlaceDbContext> contextFactory,
+    IPlayerBadgeService badgeService) : IPlayerStatisticsService
 {
     public async Task<PublicPlayerProfile?> GetProfileAsync(
         string username,
@@ -173,6 +177,7 @@ public sealed class PlayerStatisticsService(
             history.Y,
             history.PlacedAt)).ToArray();
 
+        var badges = await badgeService.GetPublicBadgesAsync(user.Id, cancellationToken);
         return new PublicPlayerProfile(
             user.Id,
             user.Username,
@@ -182,7 +187,7 @@ public sealed class PlayerStatisticsService(
             actions,
             contributions,
             recent,
-            PlayerBadgeRules.Calculate(actions.Total, contributions.Length, recent.FirstOrDefault()?.OccurredAt));
+            badges);
     }
 
     public async Task<PlayerLeaderboard?> GetLeaderboardAsync(
@@ -334,39 +339,47 @@ public sealed class PlayerStatisticsService(
 
 public static class PlayerBadgeRules
 {
-    public static IReadOnlyList<PlayerBadge> Calculate(
-        long totalActions,
-        int eventCount,
-        DateTimeOffset? lastContributionAt,
-        DateTimeOffset? now = null)
+    private static readonly IReadOnlyList<PlayerBadge> Definitions =
+    [
+        new("first-step", "FIRST STEP", "Made a first contribution."),
+        new("builder-25", "BUILDER", "Reached 25 contributions."),
+        new("century", "CENTURY", "Reached 100 contributions."),
+        new("master-builder", "MASTER BUILDER", "Reached 500 contributions."),
+        new("event-veteran", "EVENT VETERAN", "Contributed to at least 3 events."),
+        new("event-top-three", "EVENT TOP 3", "Finished in the top 3 of an event.")
+    ];
+
+    public static IReadOnlyList<PlayerBadge> Calculate(long totalActions, int eventCount)
     {
         var badges = new List<PlayerBadge>();
         if (totalActions >= 1)
         {
-            badges.Add(new PlayerBadge("first-step", "FIRST STEP", "Made a first contribution."));
+            badges.Add(Definitions[0]);
+        }
+
+        if (totalActions >= 25)
+        {
+            badges.Add(Definitions[1]);
         }
 
         if (totalActions >= 100)
         {
-            badges.Add(new PlayerBadge("century", "CENTURY", "Reached 100 contributions."));
+            badges.Add(Definitions[2]);
         }
 
         if (totalActions >= 500)
         {
-            badges.Add(new PlayerBadge("master-builder", "MASTER BUILDER", "Reached 500 contributions."));
+            badges.Add(Definitions[3]);
         }
 
         if (eventCount >= 3)
         {
-            badges.Add(new PlayerBadge("event-veteran", "EVENT VETERAN", "Contributed to at least 3 events."));
-        }
-
-        var referenceTime = now ?? DateTimeOffset.UtcNow;
-        if (lastContributionAt is { } last && last >= referenceTime.AddDays(-7))
-        {
-            badges.Add(new PlayerBadge("active-builder", "ACTIVE BUILDER", "Contributed during the last 7 days."));
+            badges.Add(Definitions[4]);
         }
 
         return badges;
     }
+
+    public static PlayerBadge? Find(string key) =>
+        Definitions.FirstOrDefault(badge => badge.Key == key);
 }
