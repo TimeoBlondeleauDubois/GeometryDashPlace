@@ -7,7 +7,7 @@ public sealed class PlayerBadgeRulesTests
     [Fact]
     public void NewPlayer_HasNoBadges()
     {
-        var badges = PlayerBadgeRules.Calculate(0, 0, null);
+        var badges = PlayerBadgeRules.Calculate(0, 0);
 
         Assert.Empty(badges);
     }
@@ -15,22 +15,20 @@ public sealed class PlayerBadgeRulesTests
     [Fact]
     public void Milestones_UnlockExpectedBadges()
     {
-        var now = new DateTimeOffset(2026, 9, 11, 12, 0, 0, TimeSpan.Zero);
-
-        var badges = PlayerBadgeRules.Calculate(500, 3, now.AddDays(-2), now);
+        var badges = PlayerBadgeRules.Calculate(500, 3);
 
         Assert.Equal(
-            ["first-step", "century", "master-builder", "event-veteran", "active-builder"],
+            ["first-step", "builder-25", "century", "master-builder", "event-veteran"],
             badges.Select(badge => badge.Key));
     }
 
     [Fact]
-    public void OldContribution_DoesNotUnlockActiveBuilder()
+    public void BuilderBadge_UnlocksAtTwentyFiveContributions()
     {
-        var now = new DateTimeOffset(2026, 9, 11, 12, 0, 0, TimeSpan.Zero);
+        var before = PlayerBadgeRules.Calculate(24, 1);
+        var atThreshold = PlayerBadgeRules.Calculate(25, 1);
 
-        var badges = PlayerBadgeRules.Calculate(1, 1, now.AddDays(-8), now);
-
-        Assert.DoesNotContain(badges, badge => badge.Key == "active-builder");
+        Assert.DoesNotContain(before, badge => badge.Key == "builder-25");
+        Assert.Contains(atThreshold, badge => badge.Key == "builder-25");
     }
 }
