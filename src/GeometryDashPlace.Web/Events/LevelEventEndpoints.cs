@@ -17,6 +17,11 @@ public static class LevelEventEndpoints
             CancellationToken cancellationToken) =>
             Results.Ok(await repository.GetPastAsync(cancellationToken)));
 
+        endpoints.MapGet("/api/events/upcoming", async (
+            ILevelEventRepository repository,
+            CancellationToken cancellationToken) =>
+            Results.Ok(await repository.GetUpcomingAsync(cancellationToken)));
+
         endpoints.MapGet("/api/events/{slug}", async (
             string slug,
             ILevelEventRepository repository,

@@ -68,6 +68,37 @@ public sealed class EntityFrameworkLevelEventRepository(
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<LevelEvent>> GetUpcomingAsync(
+        CancellationToken cancellationToken = default)
+    {
+        await using var context = await contextFactory.CreateDbContextAsync(cancellationToken);
+        var now = DateTimeOffset.UtcNow;
+        return await context.Events
+            .AsNoTracking()
+            .Where(levelEvent =>
+                levelEvent.Status == "open" &&
+                levelEvent.StartsAt != null &&
+                levelEvent.StartsAt > now &&
+                (levelEvent.EndsAt == null || levelEvent.EndsAt > levelEvent.StartsAt))
+            .OrderBy(levelEvent => levelEvent.StartsAt)
+            .ThenBy(levelEvent => levelEvent.CreatedAt)
+            .Select(levelEvent => new LevelEvent(
+                levelEvent.Id,
+                levelEvent.Slug,
+                levelEvent.Name,
+                levelEvent.Description,
+                levelEvent.Width,
+                levelEvent.Height,
+                levelEvent.CooldownSeconds,
+                levelEvent.CurrentRevision,
+                levelEvent.Status,
+                levelEvent.StartsAt,
+                levelEvent.EndsAt,
+                levelEvent.BackgroundKey,
+                levelEvent.GroundKey))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<LevelEvent?> GetBySlugAsync(
         string slug,
         CancellationToken cancellationToken = default)

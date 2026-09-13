@@ -69,4 +69,47 @@ public sealed class EventArchiveTests(PostgreSqlIntegrationFixture database)
                 UpdatedAt = now
             };
     }
+
+    [PostgreSqlFact]
+    public async Task UpcomingEvents_AreReturnedInStartOrder()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var suffix = Guid.NewGuid().ToString("N");
+        var later = Upcoming("later", now.AddDays(2));
+        var next = Upcoming("next", now.AddHours(2));
+        var draft = Upcoming("draft", now.AddHours(1), "draft");
+        var alreadyStarted = Upcoming("started", now.AddMinutes(-5));
+
+        await using (var context = database.CreateDbContext())
+        {
+            context.Events.AddRange(later, next, draft, alreadyStarted);
+            await context.SaveChangesAsync();
+        }
+
+        using var client = database.Application.CreateClient(userId: null);
+        var events = await client.GetFromJsonAsync<List<LevelEvent>>("/api/events/upcoming");
+
+        Assert.NotNull(events);
+        var seededEvents = events
+            .Where(levelEvent => levelEvent.Id == next.Id || levelEvent.Id == later.Id)
+            .ToList();
+        Assert.Equal([next.Id, later.Id], seededEvents.Select(levelEvent => levelEvent.Id));
+        Assert.DoesNotContain(events, levelEvent => levelEvent.Id == draft.Id);
+        Assert.DoesNotContain(events, levelEvent => levelEvent.Id == alreadyStarted.Id);
+
+        LevelEventEntity Upcoming(string label, DateTimeOffset startsAt, string status = "open") => new()
+        {
+            Id = Guid.NewGuid(),
+            Slug = $"upcoming-{label}-{suffix}",
+            Name = $"Upcoming {label}",
+            Width = 32,
+            Height = 16,
+            CooldownSeconds = 60,
+            Status = status,
+            StartsAt = startsAt,
+            EndsAt = startsAt.AddDays(1),
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+    }
 }
