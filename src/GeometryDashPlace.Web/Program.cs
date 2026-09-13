@@ -46,6 +46,7 @@ builder.Services.AddDbContextFactory<GeometryDashPlaceDbContext>(
 builder.Services.AddScoped<ILevelRepository, EntityFrameworkLevelRepository>();
 builder.Services.AddScoped<ILevelEventRepository, EntityFrameworkLevelEventRepository>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+builder.Services.AddScoped<IPlayerStatisticsService, PlayerStatisticsService>();
 builder.Services.AddScoped<IEventResultsRepository, EntityFrameworkEventResultsRepository>();
 builder.Services.AddSingleton<IGildPlaceConverter, GildPlaceConverter>();
 builder.Services.AddScoped<ILevelExportService, EntityFrameworkLevelExportService>();
