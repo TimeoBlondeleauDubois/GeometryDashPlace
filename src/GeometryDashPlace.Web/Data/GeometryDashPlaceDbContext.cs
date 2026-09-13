@@ -19,6 +19,7 @@ public sealed class GeometryDashPlaceDbContext(
     public DbSet<LevelCellEntity> LevelCells => Set<LevelCellEntity>();
     public DbSet<PlacementHistoryEntity> PlacementHistory => Set<PlacementHistoryEntity>();
     public DbSet<LevelSnapshotEntity> LevelSnapshots => Set<LevelSnapshotEntity>();
+    public DbSet<PlayerBadgeEntity> PlayerBadges => Set<PlayerBadgeEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -29,6 +30,7 @@ public sealed class GeometryDashPlaceDbContext(
         ConfigureLevelCell(modelBuilder);
         ConfigurePlacementHistory(modelBuilder);
         ConfigureLevelSnapshot(modelBuilder);
+        ConfigurePlayerBadge(modelBuilder);
     }
 
     private static void ConfigureUser(ModelBuilder modelBuilder)
@@ -206,6 +208,26 @@ public sealed class GeometryDashPlaceDbContext(
             entity.HasIndex(snapshot => new { snapshot.EventId, snapshot.Revision }).IsUnique();
             entity.HasOne(snapshot => snapshot.Event).WithMany(levelEvent => levelEvent.Snapshots)
                 .HasForeignKey(snapshot => snapshot.EventId).OnDelete(DeleteBehavior.Cascade);
+        });
+    }
+
+    private static void ConfigurePlayerBadge(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<PlayerBadgeEntity>(entity =>
+        {
+            entity.ToTable("player_badges");
+            entity.HasKey(badge => new { badge.UserId, badge.BadgeKey, badge.ScopeKey });
+            entity.Property(badge => badge.UserId).HasColumnName("user_id");
+            entity.Property(badge => badge.BadgeKey).HasColumnName("badge_key").HasMaxLength(40);
+            entity.Property(badge => badge.ScopeKey).HasColumnName("scope_key").HasMaxLength(64);
+            entity.Property(badge => badge.EventId).HasColumnName("event_id");
+            entity.Property(badge => badge.UnlockedAt).HasColumnName("unlocked_at");
+            entity.Property(badge => badge.SeenAt).HasColumnName("seen_at");
+            entity.HasIndex(badge => new { badge.UserId, badge.SeenAt });
+            entity.HasOne(badge => badge.User).WithMany(user => user.Badges)
+                .HasForeignKey(badge => badge.UserId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(badge => badge.Event).WithMany(levelEvent => levelEvent.Badges)
+                .HasForeignKey(badge => badge.EventId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 

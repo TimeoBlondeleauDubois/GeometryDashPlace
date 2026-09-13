@@ -20,4 +20,5 @@ public sealed class UserAccountEntity
     public ICollection<UserEventStateEntity> EventStates { get; set; } = [];
     public ICollection<LevelCellEntity> Cells { get; set; } = [];
     public ICollection<PlacementHistoryEntity> PlacementHistory { get; set; } = [];
+    public ICollection<PlayerBadgeEntity> Badges { get; set; } = [];
 }
