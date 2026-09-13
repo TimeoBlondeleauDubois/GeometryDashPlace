@@ -1,0 +1,180 @@
+@page "/events/{Slug}/upcoming"
+@rendermode InteractiveServer
+@implements IDisposable
+@using System.Globalization
+@using GeometryDashPlace.Web.Assets
+@using GeometryDashPlace.Web.Events
+@inject ILevelEventRepository EventRepository
+@inject EventLifecycleNotifier EventLifecycle
+@inject EnvironmentAssetCatalog EnvironmentAssets
+@inject NavigationManager Navigation
+
+<PageTitle>@(_event is null ? "Upcoming event" : $"{_event.Name} - Upcoming event") - Geometry Dash Place</PageTitle>
+
+<RotatingPageBackground />
+
+<main class="upcoming-page">
+    @if (_isLoading)
+    {
+        <section class="upcoming-state">
+            <GeometryDashText Text="LOADING EVENT" Height="29" />
+        </section>
+    }
+    else if (_event is null)
+    {
+        <section class="upcoming-state">
+            <GeometryDashText Text="EVENT NOT FOUND" Height="29" />
+            <a class="upcoming-button upcoming-button-blue" href="/events">
+                <GeometryDashText Text="EVENTS" Height="15" />
+            </a>
+        </section>
+    }
+    else
+    {
+        <header class="upcoming-header">
+            <div>
+                <GeometryDashText Text="UPCOMING EVENT" Height="37" Gold="true" />
+                <div class="upcoming-event-title">
+                    <GeometryDashText Text="@_event.Name" Height="24" />
+                </div>
+            </div>
+            <a class="upcoming-button upcoming-button-blue" href="/events">
+                <GeometryDashText Text="ALL EVENTS" Height="15" />
+            </a>
+        </header>
+
+        <section class="upcoming-hero">
+            <div class="upcoming-level-preview"
+                 style="background-image: linear-gradient(rgb(3 15 35 / 8%), rgb(3 15 35 / 28%)), url('@EnvironmentAssets.BackgroundPath(_event.BackgroundKey)')">
+                <div class="preview-grid" aria-hidden="true"></div>
+                <div class="preview-message">
+                    <GeometryDashText Text="GET READY" Height="31" Gold="true" />
+                </div>
+                <img class="preview-ground" src="@EnvironmentAssets.GroundPath(_event.GroundKey)" alt="" />
+            </div>
+
+            <div class="upcoming-information">
+                @if (!string.IsNullOrWhiteSpace(_event.Description))
+                {
+                    <p class="upcoming-description">@_event.Description</p>
+                }
+
+                <div class="detail-countdown" aria-live="polite">
+                    <span>EVENT STARTS IN</span>
+                    <strong>
+                        @if (_event.StartsAt is { } countdownStart)
+                        {
+                            <EventCountdownDisplay StartsAt="countdownStart"
+                                                   Elapsed="HandleEventStartedAsync" />
+                        }
+                    </strong>
+                </div>
+
+                @if (_event.StartsAt is { } startsAt)
+                {
+                    <div class="event-schedule">
+                        <span>START</span>
+                        <strong>@FormatDateTime(startsAt)</strong>
+                    </div>
+                }
+                @if (_event.EndsAt is { } endsAt)
+                {
+                    <div class="event-schedule">
+                        <span>END</span>
+                        <strong>@FormatDateTime(endsAt)</strong>
+                    </div>
+                }
+
+                <div class="upcoming-stat-grid">
+                    <UpcomingStat Label="GRID" Value="@($"{_event.Width} x {_event.Height}")" />
+                    <UpcomingStat Label="COOLDOWN" Value="@($"{_event.CooldownSeconds} SEC")" />
+                    <UpcomingStat Label="BACKGROUND" Value="@AssetLabel(EnvironmentAssets.Backgrounds, _event.BackgroundKey)" />
+                    <UpcomingStat Label="GROUND" Value="@AssetLabel(EnvironmentAssets.Grounds, _event.GroundKey)" />
+                </div>
+
+                <AuthorizeView>
+                    <NotAuthorized>
+                        <a class="upcoming-button upcoming-sign-in"
+                           href="@LoginUrl"
+                           data-enhance-nav="false">
+                            <GeometryDashText Text="SIGN IN WITH GOOGLE" Height="15" />
+                        </a>
+                    </NotAuthorized>
+                    <Authorized>
+                        <p class="upcoming-ready">You are signed in and ready for the event.</p>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </section>
+    }
+</main>
+
+@code {
+    private LevelEvent? _event;
+    private IDisposable? _eventLifecycleSubscription;
+    private DateTimeOffset _now = DateTimeOffset.UtcNow;
+    private bool _isLoading = true;
+
+    [Parameter]
+    public string Slug { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _eventLifecycleSubscription = EventLifecycle.Subscribe(HandleLifecycleChangedAsync);
+        await base.OnInitializedAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        await LoadEventAsync();
+        _isLoading = false;
+    }
+
+    public void Dispose() => _eventLifecycleSubscription?.Dispose();
+
+    private Task HandleLifecycleChangedAsync() => InvokeAsync(async () =>
+    {
+        var previousEvent = _event;
+        await LoadEventAsync();
+        if (previousEvent != _event)
+        {
+            StateHasChanged();
+        }
+    });
+
+    private Task HandleEventStartedAsync() => InvokeAsync(LoadEventAsync);
+
+    private async Task LoadEventAsync()
+    {
+        _now = DateTimeOffset.UtcNow;
+        var levelEvent = await EventRepository.GetBySlugAsync(Slug);
+        if (levelEvent is null || levelEvent.Status != "open")
+        {
+            if (levelEvent?.EndsAt is { } endedAt && endedAt <= _now)
+            {
+                Navigation.NavigateTo($"/events/{Slug}/results", replace: true);
+                return;
+            }
+            _event = null;
+            return;
+        }
+
+        if (levelEvent.StartsAt is null || levelEvent.StartsAt <= _now)
+        {
+            Navigation.NavigateTo("/", forceLoad: true, replace: true);
+            return;
+        }
+
+        _event = levelEvent;
+    }
+
+    private string LoginUrl =>
+        $"/login/google?returnUrl={Uri.EscapeDataString($"/events/{Slug}/upcoming")}";
+
+    private static string FormatDateTime(DateTimeOffset value) =>
+        value.LocalDateTime.ToString("dddd, dd MMMM yyyy - HH:mm", CultureInfo.InvariantCulture);
+
+    private static string AssetLabel(IReadOnlyList<EnvironmentAsset> assets, string key) =>
+        assets.FirstOrDefault(asset => asset.Key == key)?.Label ?? key.Replace('-', ' ').ToUpperInvariant();
+}

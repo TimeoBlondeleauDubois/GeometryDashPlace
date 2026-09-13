@@ -3,10 +3,12 @@
 @rendermode InteractiveServer
 @implements IDisposable
 @using System.Globalization
+@using GeometryDashPlace.Web.Assets
 @using GeometryDashPlace.Web.Events
 @inject ILevelEventRepository EventRepository
 @inject EventLifecycleNotifier EventLifecycle
 @inject NavigationManager Navigation
+@inject EnvironmentAssetCatalog EnvironmentAssets
 
 <PageTitle>Events - Geometry Dash Place</PageTitle>
 
@@ -62,40 +64,105 @@
             <p>@_error</p>
         </section>
     }
-    else if (_pastEvents.Count == 0)
-    {
-        <section class="events-state">
-            <GeometryDashText Text="NO PAST EVENTS" Height="28" />
-            <p>Completed events will appear here.</p>
-        </section>
-    }
     else
     {
-        <section class="events-grid" aria-label="Past events">
-            @foreach (var levelEvent in _pastEvents)
-            {
-                <a class="event-card" href="@($"/events/{levelEvent.Slug}/results")">
-                    <span class="event-card-title">
-                        <GeometryDashText Text="@levelEvent.Name" Height="23" />
-                    </span>
-                    @if (!string.IsNullOrWhiteSpace(levelEvent.Description))
+        @if (_upcomingEvents.Count > 0)
+        {
+            <section class="upcoming-events" aria-label="Upcoming events">
+                <div class="events-section-heading">
+                    <GeometryDashText Text="UPCOMING EVENTS" Height="29" Gold="true" />
+                    <span>@_upcomingEvents.Count scheduled</span>
+                </div>
+                <div class="upcoming-grid">
+                    @for (var index = 0; index < _upcomingEvents.Count; index++)
                     {
-                        <span class="event-card-description">@levelEvent.Description</span>
+                        var levelEvent = _upcomingEvents[index];
+                        <article class="upcoming-card @(index == 0 ? "is-next" : null)">
+                            <div class="upcoming-preview"
+                                 style="background-image: linear-gradient(rgb(4 20 45 / 18%), rgb(4 20 45 / 44%)), url('@EnvironmentAssets.BackgroundPath(levelEvent.BackgroundKey)')">
+                                <span class="upcoming-badge">@(index == 0 ? "NEXT EVENT" : "UPCOMING")</span>
+                                <img src="@EnvironmentAssets.GroundPath(levelEvent.GroundKey)" alt="" />
+                            </div>
+                            <div class="upcoming-content">
+                                <span class="event-card-title">
+                                    <GeometryDashText Text="@levelEvent.Name" Height="23" />
+                                </span>
+                                @if (!string.IsNullOrWhiteSpace(levelEvent.Description))
+                                {
+                                    <p>@levelEvent.Description</p>
+                                }
+                                @if (levelEvent.StartsAt is { } startsAt)
+                                {
+                                    <div class="upcoming-countdown" aria-live="polite">
+                                        <span>STARTS IN</span>
+                                        <strong>
+                                            @if (index == 0)
+                                            {
+                                                <EventCountdownDisplay StartsAt="startsAt"
+                                                                       Elapsed="HandleNextEventStartedAsync" />
+                                            }
+                                            else
+                                            {
+                                                <EventCountdownDisplay StartsAt="startsAt" />
+                                            }
+                                        </strong>
+                                    </div>
+                                    <time datetime="@startsAt.ToString("O")">@FormatStartDate(startsAt)</time>
+                                }
+                                <div class="upcoming-details">
+                                    <span>@levelEvent.Width x @levelEvent.Height GRID</span>
+                                    <span>@levelEvent.CooldownSeconds SEC COOLDOWN</span>
+                                </div>
+                                <a class="event-card-action upcoming-action"
+                                   href="@($"/events/{levelEvent.Slug}/upcoming")">
+                                    <GeometryDashText Text="VIEW DETAILS" Height="16" />
+                                </a>
+                            </div>
+                        </article>
                     }
-                    <span class="event-card-details">
-                        <span>@levelEvent.Revision revisions</span>
-                        <span>@levelEvent.Width x @levelEvent.Height</span>
-                        @if (levelEvent.EndsAt is { } endsAt)
-                        {
-                            <time datetime="@endsAt.ToString("O")">
-                                @endsAt.LocalDateTime.ToString("dd MMM yyyy", CultureInfo.InvariantCulture)
-                            </time>
-                        }
-                    </span>
-                    <span class="event-card-action">
-                        <GeometryDashText Text="VIEW RESULTS" Height="16" />
-                    </span>
-                </a>
+                </div>
+            </section>
+        }
+
+        <section class="past-events" aria-label="Past events">
+            <div class="events-section-heading">
+                <GeometryDashText Text="PAST EVENTS" Height="29" Gold="true" />
+            </div>
+            @if (_pastEvents.Count == 0)
+            {
+                <div class="events-empty">
+                    <p>Completed events will appear here.</p>
+                </div>
+            }
+            else
+            {
+                <div class="events-grid">
+                    @foreach (var levelEvent in _pastEvents)
+                    {
+                        <a class="event-card" href="@($"/events/{levelEvent.Slug}/results")">
+                            <span class="event-card-title">
+                                <GeometryDashText Text="@levelEvent.Name" Height="23" />
+                            </span>
+                            @if (!string.IsNullOrWhiteSpace(levelEvent.Description))
+                            {
+                                <span class="event-card-description">@levelEvent.Description</span>
+                            }
+                            <span class="event-card-details">
+                                <span>@levelEvent.Revision revisions</span>
+                                <span>@levelEvent.Width x @levelEvent.Height</span>
+                                @if (levelEvent.EndsAt is { } endsAt)
+                                {
+                                    <time datetime="@endsAt.ToString("O")">
+                                        @endsAt.LocalDateTime.ToString("dd MMM yyyy", CultureInfo.InvariantCulture)
+                                    </time>
+                                }
+                            </span>
+                            <span class="event-card-action">
+                                <GeometryDashText Text="VIEW RESULTS" Height="16" />
+                            </span>
+                        </a>
+                    }
+                </div>
             }
         </section>
     }
@@ -103,19 +170,19 @@
 
 @code {
     private IReadOnlyList<LevelEvent> _pastEvents = [];
+    private IReadOnlyList<LevelEvent> _upcomingEvents = [];
     private LevelEvent? _currentEvent;
     private bool _isLoading = true;
     private string? _error;
     private IDisposable? _eventLifecycleSubscription;
-    private bool _waitingForEvent;
+    private bool _redirectWhenEventStarts;
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
-            _currentEvent = await EventRepository.GetCurrentAsync();
-            _pastEvents = await EventRepository.GetPastAsync();
-            _waitingForEvent = _currentEvent is null;
+            await RefreshEventsAsync();
+            _redirectWhenEventStarts = _currentEvent is null;
             _eventLifecycleSubscription = EventLifecycle.Subscribe(HandleEventLifecycleChangedAsync);
         }
         catch
@@ -132,15 +199,45 @@
 
     private Task HandleEventLifecycleChangedAsync() => InvokeAsync(async () =>
     {
-        if (!_waitingForEvent)
-        {
-            return;
-        }
-
-        var current = await EventRepository.GetCurrentAsync();
-        if (current is not null)
+        var previousCurrentEvent = _currentEvent;
+        var previousUpcomingEvents = _upcomingEvents;
+        var previousPastEvents = _pastEvents;
+        await RefreshEventsAsync();
+        if (_redirectWhenEventStarts && _currentEvent is not null)
         {
             Navigation.NavigateTo("/", forceLoad: true, replace: true);
+            return;
+        }
+        if (previousCurrentEvent != _currentEvent ||
+            !previousUpcomingEvents.SequenceEqual(_upcomingEvents) ||
+            !previousPastEvents.SequenceEqual(_pastEvents))
+        {
+            StateHasChanged();
         }
     });
+
+    private Task HandleNextEventStartedAsync() => InvokeAsync(async () =>
+    {
+        await RefreshEventsAsync();
+        if (_redirectWhenEventStarts && _currentEvent is not null)
+        {
+            Navigation.NavigateTo("/", forceLoad: true, replace: true);
+            return;
+        }
+        StateHasChanged();
+    });
+
+    private async Task RefreshEventsAsync()
+    {
+        var currentTask = EventRepository.GetCurrentAsync();
+        var upcomingTask = EventRepository.GetUpcomingAsync();
+        var pastTask = EventRepository.GetPastAsync();
+        await Task.WhenAll(currentTask, upcomingTask, pastTask);
+        _currentEvent = await currentTask;
+        _upcomingEvents = await upcomingTask;
+        _pastEvents = await pastTask;
+    }
+
+    private static string FormatStartDate(DateTimeOffset startsAt) =>
+        startsAt.LocalDateTime.ToString("dddd, dd MMM yyyy - HH:mm", CultureInfo.InvariantCulture);
 }

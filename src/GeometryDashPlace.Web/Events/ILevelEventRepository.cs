@@ -4,6 +4,9 @@ public interface ILevelEventRepository
 {
     Task<LevelEvent?> GetCurrentAsync(CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<LevelEvent>> GetUpcomingAsync(
+        CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<LevelEvent>> GetPastAsync(
         CancellationToken cancellationToken = default);
 
