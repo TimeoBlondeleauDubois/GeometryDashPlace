@@ -20,6 +20,9 @@
         <a class="site-menu-action site-events-action" href="/events">
             <GeometryDashText Text="EVENTS" Height="14" />
         </a>
+        <a class="site-menu-action site-leaderboard-action" href="/leaderboard">
+            <GeometryDashText Text="LEADERBOARD" Height="13" />
+        </a>
         <AuthorizeView Policy="Admin">
             <a class="site-menu-action site-admin-action" href="/admin">
                 <GeometryDashText Text="ADMIN" Height="14" />
@@ -27,7 +30,7 @@
         </AuthorizeView>
         <AuthorizeView Context="account">
             <Authorized>
-                <div class="site-account-identity" title="@account.User.Identity?.Name">
+                <a class="site-account-identity" href="@PublicProfileUrl" title="View public profile">
                     @if (!string.IsNullOrWhiteSpace(_profile?.AvatarUrl))
                     {
                         <img class="site-account-avatar"
@@ -44,7 +47,7 @@
                     <span class="site-account-name">
                         @(_profile?.Username ?? account.User.Identity?.Name)
                     </span>
-                </div>
+                </a>
                 <a class="site-menu-action site-profile-action" href="@ProfileUrl">
                     <GeometryDashText Text="EDIT PROFILE" Height="13" />
                 </a>
@@ -91,6 +94,10 @@
 
     private string ProfileUrl =>
         $"/profile/setup?returnUrl={Uri.EscapeDataString(CurrentReturnUrl)}";
+
+    private string PublicProfileUrl => string.IsNullOrWhiteSpace(_profile?.Username)
+        ? ProfileUrl
+        : $"/players/{_profile.Username}";
 
     private string CurrentReturnUrl
     {

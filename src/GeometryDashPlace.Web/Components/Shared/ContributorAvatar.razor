@@ -1,0 +1,19 @@
+@using GeometryDashPlace.Web.Events
+
+@if (!string.IsNullOrWhiteSpace(Contributor.AvatarUrl))
+{
+    <img class="contributor-avatar" src="@Contributor.AvatarUrl" alt="" referrerpolicy="no-referrer" />
+}
+else
+{
+    <span class="contributor-avatar contributor-avatar-default" aria-hidden="true">@Initial</span>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public EventContributorResult Contributor { get; set; } = default!;
+
+    private string Initial => string.IsNullOrWhiteSpace(Contributor.DisplayName)
+        ? "?"
+        : Contributor.DisplayName[0].ToString().ToUpperInvariant();
+}

@@ -53,11 +53,15 @@ public sealed class EntityFrameworkEventResultsRepository(
             {
                 history.UserId,
                 DisplayName = history.User.Username ?? history.User.DisplayName,
+                history.User.Username,
+                history.User.AvatarUrl,
                 history.Action
             })
             .Select(group => new ContributorActionRow(
                 group.Key.UserId,
                 group.Key.DisplayName,
+                group.Key.Username,
+                group.Key.AvatarUrl,
                 group.Key.Action,
                 group.LongCount(),
                 group.Min(history => history.PlacedAt),
@@ -68,10 +72,12 @@ public sealed class EntityFrameworkEventResultsRepository(
             .CountAsync(cell => cell.EventId == levelEvent.Id, cancellationToken);
 
         var contributors = contributorRows
-            .GroupBy(row => new { row.UserId, row.DisplayName })
+            .GroupBy(row => new { row.UserId, row.DisplayName, row.Username, row.AvatarUrl })
             .Select(group => new EventContributorResult(
                 group.Key.UserId,
                 group.Key.DisplayName,
+                group.Key.Username,
+                group.Key.AvatarUrl,
                 Totals(group.Select(row => new ActionRow(row.Action, row.Count))),
                 group.Min(row => row.FirstContributionAt),
                 group.Max(row => row.LastContributionAt)))
@@ -110,6 +116,8 @@ public sealed class EntityFrameworkEventResultsRepository(
     private sealed record ContributorActionRow(
         Guid UserId,
         string DisplayName,
+        string? Username,
+        string? AvatarUrl,
         string Action,
         long Count,
         DateTimeOffset FirstContributionAt,

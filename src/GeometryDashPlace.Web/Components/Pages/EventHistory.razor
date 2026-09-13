@@ -113,24 +113,27 @@ else
                 <article class="history-revision-details" aria-live="polite">
                     @if (SelectedRevisionDetails is { } details)
                     {
-                        @if (!string.IsNullOrWhiteSpace(details.AuthorAvatarUrl))
-                        {
-                            <img class="history-author-avatar"
-                                 src="@details.AuthorAvatarUrl"
-                                 alt=""
-                                 referrerpolicy="no-referrer" />
-                        }
-                        else
-                        {
-                            <span class="history-author-avatar history-author-avatar-default"
-                                  aria-hidden="true">@AvatarInitial(details.Author)</span>
-                        }
+                        <a class="history-author-link"
+                           href="@(string.IsNullOrWhiteSpace(details.AuthorUsername) ? null : $"/players/{details.AuthorUsername}")">
+                            @if (!string.IsNullOrWhiteSpace(details.AuthorAvatarUrl))
+                            {
+                                <img class="history-author-avatar"
+                                     src="@details.AuthorAvatarUrl"
+                                     alt=""
+                                     referrerpolicy="no-referrer" />
+                            }
+                            else
+                            {
+                                <span class="history-author-avatar history-author-avatar-default"
+                                      aria-hidden="true">@AvatarInitial(details.Author)</span>
+                            }
 
-                        <div class="history-change-summary">
-                            <GeometryDashText Text="@ActionLabel(details.Action)" Height="13" Gold="true" />
-                            <strong>@details.Author</strong>
-                            <span>@PositionLabel(details) - @FormatReplayDate(details.PlacedAt)</span>
-                        </div>
+                            <span class="history-change-summary">
+                                <GeometryDashText Text="@ActionLabel(details.Action)" Height="13" Gold="true" />
+                                <strong>@details.Author</strong>
+                                <span>@PositionLabel(details) - @FormatReplayDate(details.PlacedAt)</span>
+                            </span>
+                        </a>
                     }
                     else
                     {

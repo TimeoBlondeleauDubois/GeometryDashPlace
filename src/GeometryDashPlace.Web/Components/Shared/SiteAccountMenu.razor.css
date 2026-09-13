@@ -97,7 +97,8 @@
 }
 
 .site-home-action,
-.site-events-action {
+.site-events-action,
+.site-leaderboard-action {
     background: linear-gradient(180deg, #31dce5, #1398b0);
     box-shadow: inset 0 0 0 2px rgb(255 255 255 / 25%), 0 2px 0 #075364;
 }
@@ -133,6 +134,11 @@
     display: flex;
     align-items: center;
     gap: 9px;
+    text-decoration: none;
+}
+
+.site-account-identity:hover .site-account-name {
+    color: #fff16a;
 }
 
 .site-account-name {

@@ -1,0 +1,151 @@
+@page "/leaderboard"
+@rendermode InteractiveServer
+@using System.Globalization
+@using GeometryDashPlace.Web.Profiles
+@inject IPlayerStatisticsService Statistics
+@inject NavigationManager Navigation
+@inject ILogger<Leaderboard> Logger
+
+<PageTitle>Leaderboard - Geometry Dash Place</PageTitle>
+
+<RotatingPageBackground />
+
+<main class="leaderboard-page">
+    <header class="leaderboard-header">
+        <div>
+            <GeometryDashText Text="LEADERBOARD" Height="40" Gold="true" />
+            @if (!string.IsNullOrWhiteSpace(_leaderboard?.SelectedEventName))
+            {
+                <p>@_leaderboard.SelectedEventName</p>
+            }
+            else
+            {
+                <p>All community events</p>
+            }
+        </div>
+        <a class="leaderboard-button" href="/events">
+            <GeometryDashText Text="EVENTS" Height="15" />
+        </a>
+    </header>
+
+    @if (_isLoading)
+    {
+        <section class="leaderboard-state">
+            <GeometryDashText Text="LOADING RANKING" Height="28" />
+        </section>
+    }
+    else if (_leaderboard is null)
+    {
+        <section class="leaderboard-state">
+            <GeometryDashText Text="RANKING NOT FOUND" Height="28" />
+            <a class="leaderboard-button" href="/leaderboard">
+                <GeometryDashText Text="GLOBAL RANKING" Height="14" />
+            </a>
+        </section>
+    }
+    else
+    {
+        <section class="leaderboard-panel">
+            <div class="leaderboard-filter">
+                <label for="leaderboard-event">RANKING</label>
+                <select id="leaderboard-event" value="@(_leaderboard.SelectedEventSlug ?? string.Empty)" @onchange="ChangeRanking">
+                    <option value="">GLOBAL - ALL EVENTS</option>
+                    @foreach (var levelEvent in _leaderboard.Events)
+                    {
+                        <option value="@levelEvent.Slug">@levelEvent.Name</option>
+                    }
+                </select>
+            </div>
+
+            @if (_leaderboard.Entries.Count == 0)
+            {
+                <p class="leaderboard-empty">No contribution has been recorded for this ranking.</p>
+            }
+            else
+            {
+                <div class="leaderboard-list">
+                    @foreach (var player in _leaderboard.Entries)
+                    {
+                        <a class="leaderboard-row leaderboard-rank-@player.Rank" href="@($"/players/{player.Username}")">
+                            <strong class="leaderboard-rank">#@player.Rank</strong>
+                            @if (!string.IsNullOrWhiteSpace(player.AvatarUrl))
+                            {
+                                <img class="leaderboard-avatar" src="@player.AvatarUrl" alt="" referrerpolicy="no-referrer" />
+                            }
+                            else
+                            {
+                                <span class="leaderboard-avatar leaderboard-avatar-default" aria-hidden="true">
+                                    @AvatarInitial(player.Username)
+                                </span>
+                            }
+                            <span class="leaderboard-name">
+                                <strong>@player.Username</strong>
+                                <span>Last action @FormatDate(player.LastContributionAt)</span>
+                            </span>
+                            <span class="leaderboard-value">
+                                <strong>@player.Actions.Total</strong>
+                                <span>CHANGES</span>
+                            </span>
+                            <span class="leaderboard-value">
+                                <strong>@player.Actions.Placements</strong>
+                                <span>PLACED</span>
+                            </span>
+                            <span class="leaderboard-value">
+                                <strong>@ModifiedCount(player)</strong>
+                                <span>MODIFIED</span>
+                            </span>
+                            @if (_leaderboard.SelectedEventSlug is null)
+                            {
+                                <span class="leaderboard-value">
+                                    <strong>@player.EventCount</strong>
+                                    <span>EVENTS</span>
+                                </span>
+                            }
+                        </a>
+                    }
+                </div>
+            }
+        </section>
+    }
+</main>
+
+@code {
+    private PlayerLeaderboard? _leaderboard;
+    private bool _isLoading = true;
+
+    [SupplyParameterFromQuery(Name = "event")]
+    public string? EventSlug { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            _leaderboard = await Statistics.GetLeaderboardAsync(EventSlug);
+        }
+        catch (Exception exception)
+        {
+            Logger.LogError(exception, "Unable to load the player leaderboard for event {EventSlug}.", EventSlug);
+            _leaderboard = null;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ChangeRanking(ChangeEventArgs args)
+    {
+        var slug = args.Value?.ToString();
+        Navigation.NavigateTo(string.IsNullOrWhiteSpace(slug)
+            ? "/leaderboard"
+            : $"/leaderboard?event={Uri.EscapeDataString(slug)}");
+    }
+
+    private static long ModifiedCount(PlayerLeaderboardEntry player) =>
+        player.Actions.Replacements + player.Actions.Moves + player.Actions.MoveReplacements;
+    private static string AvatarInitial(string username) =>
+        string.IsNullOrWhiteSpace(username) ? "?" : username[0].ToString().ToUpperInvariant();
+    private static string FormatDate(DateTimeOffset value) =>
+        value.LocalDateTime.ToString("dd MMM yyyy HH:mm", CultureInfo.InvariantCulture);
+}
