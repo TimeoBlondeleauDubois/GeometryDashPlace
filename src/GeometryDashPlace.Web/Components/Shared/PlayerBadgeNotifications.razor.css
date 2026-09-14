@@ -98,7 +98,7 @@
 
 @media (max-width: 540px) {
     .badge-unlock {
-        top: 76px;
+        top: calc(70px + env(safe-area-inset-top));
         grid-template-columns: 54px minmax(0, 1fr);
         min-height: 98px;
         padding: 12px 34px 12px 14px;
@@ -108,5 +108,9 @@
         width: 46px;
         border-width: 3px;
         font-size: 1.65rem;
+    }
+
+    .badge-unlock-copy p {
+        font-size: .68rem;
     }
 }

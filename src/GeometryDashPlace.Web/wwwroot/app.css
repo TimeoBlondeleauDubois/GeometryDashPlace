@@ -6,8 +6,23 @@ body {
     background: #06162f;
 }
 
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
 body {
+    min-height: 100dvh;
     overflow-x: hidden;
+    overscroll-behavior-x: none;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+    -webkit-tap-highlight-color: transparent;
 }
 
 * {
@@ -42,4 +57,21 @@ body {
 
 *::-webkit-scrollbar-corner {
     background: #35170f;
+}
+
+@media (max-width: 760px) {
+    *::-webkit-scrollbar {
+        width: 9px;
+        height: 9px;
+    }
+}
+
+@media (hover: none) and (pointer: coarse) {
+    button,
+    a,
+    summary,
+    input:not([type="range"]),
+    select {
+        touch-action: manipulation;
+    }
 }
