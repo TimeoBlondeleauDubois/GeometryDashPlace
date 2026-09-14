@@ -62,11 +62,18 @@ public sealed class PlayerStatisticsTests(PostgreSqlIntegrationFixture database)
         Assert.Equal(1, profile.Events[0].Rank);
         Assert.Equal(2, profile.RecentActivity.Count);
         Assert.Contains(profile.Badges, badge => badge.Key == "first-step");
+        Assert.Equal(1, profile.Progression.Level);
+        Assert.Equal(20, profile.Progression.TotalXp);
+        Assert.Equal("event-veteran", profile.Progression.NextBadge?.Key);
 
         Assert.NotNull(global);
         Assert.Equal(scenario.UserIds[0], global.Entries[0].UserId);
+        Assert.Equal(profile.Progression.Level, global.Entries[0].Level);
+        Assert.Equal(profile.Progression.TotalXp, global.Entries[0].TotalXp);
         Assert.NotNull(eventRanking);
         Assert.Equal(scenario.UserIds[0], eventRanking.Entries[0].UserId);
+        Assert.Equal(profile.Progression.Level, eventRanking.Entries[0].Level);
+        Assert.Equal(profile.Progression.TotalXp, eventRanking.Entries[0].TotalXp);
         Assert.Equal(eventSlug, eventRanking.SelectedEventSlug);
     }
 }
