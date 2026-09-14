@@ -38,7 +38,10 @@
                     <span class="player-avatar player-avatar-default" aria-hidden="true">@AvatarInitial</span>
                 }
                 <div>
-                    <GeometryDashText Text="@_profile.Username" Height="38" Gold="true" />
+                    <div class="player-name-row">
+                        <GeometryDashText Text="@_profile.Username" Height="38" Gold="true" />
+                        <span class="player-level-chip">LEVEL @_profile.Progression.Level</span>
+                    </div>
                     <p>Joined @FormatDate(_profile.JoinedAt)</p>
                 </div>
             </div>
@@ -51,6 +54,50 @@
                 </a>
             </nav>
         </header>
+
+        <section class="player-progression" aria-label="Player progression">
+            <div class="player-level-medal">
+                <span>LEVEL</span>
+                <strong>@_profile.Progression.Level</strong>
+            </div>
+            <div class="player-xp-progress">
+                <div class="progress-heading">
+                    <strong>@LevelProgressLabel</strong>
+                    <span>10 XP / CHANGE · @FormatNumber(_profile.Progression.TotalXp) TOTAL XP</span>
+                </div>
+                <div class="progress-track"
+                     role="progressbar"
+                     aria-label="Level progress"
+                     aria-valuemin="0"
+                     aria-valuemax="100"
+                     aria-valuenow="@_profile.Progression.LevelProgressPercent">
+                    <span style="@ProgressWidth(_profile.Progression.LevelProgressPercent)"></span>
+                </div>
+            </div>
+            @if (_profile.Progression.NextBadge is { } nextBadge)
+            {
+                <div class="next-badge-progress">
+                    <span>NEXT BADGE</span>
+                    <strong>@nextBadge.Name</strong>
+                    <small>@nextBadge.Current / @nextBadge.Target @nextBadge.Unit</small>
+                    <div class="badge-progress-track"
+                         role="progressbar"
+                         aria-label="Progress toward @nextBadge.Name"
+                         aria-valuemin="0"
+                         aria-valuemax="100"
+                         aria-valuenow="@nextBadge.ProgressPercent">
+                        <span style="@ProgressWidth(nextBadge.ProgressPercent)"></span>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="next-badge-progress next-badge-complete">
+                    <span>BADGE PROGRESS</span>
+                    <strong>ALL STANDARD MILESTONES CLEARED</strong>
+                </div>
+            }
+        </section>
 
         <section class="player-summary" aria-label="Player statistics">
             <StatCard Label="GLOBAL RANK" Value="@RankLabel(_profile.GlobalRank)" />
@@ -166,6 +213,9 @@
     }
 
     private long ModifiedCount => _profile is null ? 0 : ModifiedCountFor(_profile.Actions);
+    private string LevelProgressLabel => _profile?.Progression.NextLevelXp is > 0
+        ? $"{FormatNumber(_profile.Progression.CurrentLevelXp)} / {FormatNumber(_profile.Progression.NextLevelXp)} XP"
+        : "MAX LEVEL";
     private string AvatarInitial => string.IsNullOrWhiteSpace(_profile?.Username)
         ? "?"
         : _profile.Username[0].ToString().ToUpperInvariant();
@@ -174,6 +224,10 @@
         actions.Replacements + actions.Moves + actions.MoveReplacements;
 
     private static string RankLabel(long rank) => rank == 0 ? "-" : $"#{rank}";
+    private static string FormatNumber(long value) =>
+        value.ToString("N0", CultureInfo.InvariantCulture);
+    private static string ProgressWidth(int percentage) =>
+        $"width: {Math.Clamp(percentage, 0, 100).ToString(CultureInfo.InvariantCulture)}%";
     private static string FormatDate(DateTimeOffset value) =>
         value.LocalDateTime.ToString("dd MMM yyyy", CultureInfo.InvariantCulture);
     private static string FormatDateTime(DateTimeOffset value) =>

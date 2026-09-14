@@ -37,6 +37,7 @@ public sealed record PublicPlayerProfile(
     DateTimeOffset JoinedAt,
     long GlobalRank,
     EventActionTotals Actions,
+    PlayerProgression Progression,
     IReadOnlyList<PlayerEventContribution> Events,
     IReadOnlyList<PlayerRecentActivity> RecentActivity,
     IReadOnlyList<PlayerBadge> Badges);
@@ -48,6 +49,8 @@ public sealed record PlayerLeaderboardEntry(
     Guid UserId,
     string Username,
     string? AvatarUrl,
+    int Level,
+    long TotalXp,
     EventActionTotals Actions,
     int EventCount,
     DateTimeOffset LastContributionAt);
@@ -178,6 +181,7 @@ public sealed class PlayerStatisticsService(
             history.PlacedAt)).ToArray();
 
         var badges = await badgeService.GetPublicBadgesAsync(user.Id, cancellationToken);
+        var progression = PlayerProgressionRules.Calculate(actions.Total, contributions.Length);
         return new PublicPlayerProfile(
             user.Id,
             user.Username,
@@ -185,6 +189,7 @@ public sealed class PlayerStatisticsService(
             user.JoinedAt,
             globalRank,
             actions,
+            progression,
             contributions,
             recent,
             badges);
@@ -255,14 +260,40 @@ public sealed class PlayerStatisticsService(
             .Take(Math.Clamp(limit, 1, 100))
             .ToListAsync(cancellationToken);
 
-        var entries = rows.Select((row, index) => new PlayerLeaderboardEntry(
-            index + 1,
-            row.UserId,
-            row.Username,
-            row.AvatarUrl,
-            ToTotals(row),
-            row.EventCount,
-            row.LastContributionAt)).ToArray();
+        Dictionary<Guid, ProgressionTotalRow>? globalProgression = null;
+        if (eventId is not null && rows.Count > 0)
+        {
+            var rankedUserIds = rows.Select(row => row.UserId).ToArray();
+            globalProgression = await context.PlacementHistory
+                .AsNoTracking()
+                .Where(history => rankedUserIds.Contains(history.UserId))
+                .GroupBy(history => history.UserId)
+                .Select(group => new ProgressionTotalRow(
+                    group.Key,
+                    group.LongCount(),
+                    group.Select(history => history.EventId).Distinct().Count()))
+                .ToDictionaryAsync(row => row.UserId, cancellationToken);
+        }
+
+        var entries = rows.Select((row, index) =>
+        {
+            var totals = globalProgression is not null &&
+                         globalProgression.TryGetValue(row.UserId, out var global)
+                ? global
+                : new ProgressionTotalRow(row.UserId, row.Total, row.EventCount);
+            var progression = PlayerProgressionRules.Calculate(
+                totals.TotalActions, totals.EventCount);
+            return new PlayerLeaderboardEntry(
+                index + 1,
+                row.UserId,
+                row.Username,
+                row.AvatarUrl,
+                progression.Level,
+                progression.TotalXp,
+                ToTotals(row),
+                row.EventCount,
+                row.LastContributionAt);
+        }).ToArray();
         return new PlayerLeaderboard(eventSlug, selectedEventName, events, entries);
     }
 
@@ -335,6 +366,7 @@ public sealed class PlayerStatisticsService(
 
     private sealed record RankedTotalRow(Guid UserId, long Total);
     private sealed record RankedEventTotalRow(Guid EventId, Guid UserId, long Total);
+    private sealed record ProgressionTotalRow(Guid UserId, long TotalActions, int EventCount);
 }
 
 public static class PlayerBadgeRules
