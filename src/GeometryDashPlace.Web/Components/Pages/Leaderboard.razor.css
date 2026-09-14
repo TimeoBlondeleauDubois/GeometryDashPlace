@@ -152,6 +152,31 @@
     font-size: 1rem;
 }
 
+.leaderboard-name-heading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.leaderboard-name-heading > strong {
+    color: white;
+    font-size: 1rem;
+}
+
+.leaderboard-level {
+    padding: 4px 7px 3px;
+    border: 1px solid white;
+    border-radius: 5px;
+    background: linear-gradient(180deg, #ffca27, #e9770a);
+    color: white;
+    font-size: .55rem;
+    font-weight: 900;
+    line-height: 1;
+    box-shadow: 0 2px 0 #7f3505;
+    text-shadow: 0 1px 0 #7f3505;
+}
+
 .leaderboard-name > span,
 .leaderboard-value > span {
     color: #bde8ff;
@@ -170,6 +195,10 @@
 .leaderboard-value > strong {
     color: #fff16a;
     font-size: 1rem;
+}
+
+.leaderboard-xp > strong {
+    color: #80eeff;
 }
 
 .leaderboard-state {

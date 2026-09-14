@@ -79,8 +79,15 @@
                                 </span>
                             }
                             <span class="leaderboard-name">
-                                <strong>@player.Username</strong>
+                                <span class="leaderboard-name-heading">
+                                    <strong>@player.Username</strong>
+                                    <span class="leaderboard-level">LVL @player.Level</span>
+                                </span>
                                 <span>Last action @FormatDate(player.LastContributionAt)</span>
+                            </span>
+                            <span class="leaderboard-value leaderboard-xp">
+                                <strong>@player.TotalXp.ToString("N0", CultureInfo.InvariantCulture)</strong>
+                                <span>XP</span>
                             </span>
                             <span class="leaderboard-value">
                                 <strong>@player.Actions.Total</strong>
