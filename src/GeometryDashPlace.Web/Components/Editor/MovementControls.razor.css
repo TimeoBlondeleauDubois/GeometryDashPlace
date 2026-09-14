@@ -123,14 +123,14 @@
     }
 
     .movement-buttons {
-        grid-template-columns: repeat(4, 36px);
-        grid-template-rows: repeat(2, 36px);
-        gap: 2px;
+        grid-template-columns: repeat(4, 44px);
+        grid-template-rows: repeat(2, 44px);
+        gap: 4px;
     }
 
     .movement-buttons button {
-        width: 36px;
-        height: 36px;
+        width: 44px;
+        height: 44px;
         padding: 7px;
     }
 
@@ -140,5 +140,18 @@
 
     .movement-buttons .scale-object-button {
         padding: 4px;
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .movement-buttons {
+        grid-template-columns: repeat(4, 38px);
+        grid-template-rows: repeat(2, 38px);
+        gap: 2px;
+    }
+
+    .movement-buttons button {
+        width: 38px;
+        height: 38px;
     }
 }

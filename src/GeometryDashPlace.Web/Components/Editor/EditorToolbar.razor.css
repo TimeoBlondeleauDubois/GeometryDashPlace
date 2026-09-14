@@ -46,10 +46,20 @@
 
 @media (max-width: 760px) {
     .object-toolbar {
-        padding-inline: 5px;
+        padding: 7px 4px calc(10px + env(safe-area-inset-bottom));
     }
 
     .palette-heading {
         min-height: 21px;
+    }
+
+    .palette-pages {
+        display: none;
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .object-toolbar {
+        padding-bottom: calc(8px + env(safe-area-inset-bottom));
     }
 }

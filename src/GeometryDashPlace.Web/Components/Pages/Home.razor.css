@@ -2,7 +2,9 @@
     --toolbar-height: clamp(188px, 24vh, 242px);
     position: fixed;
     inset: 0;
+    height: 100dvh;
     overflow: hidden;
+    overscroll-behavior: none;
     background: #0c1c35;
     color: white;
     font-family: Arial, Helvetica, sans-serif;
@@ -151,7 +153,47 @@
 
 @media (max-width: 760px) {
     .editor-page {
-        --toolbar-height: 188px;
+        --toolbar-height: calc(278px + env(safe-area-inset-bottom));
+    }
+
+    .editor-auth-guard {
+        box-sizing: border-box;
+        flex-direction: column;
+        gap: 12px;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .editor-persistence-message {
+        top: calc(65px + env(safe-area-inset-top));
+        width: calc(100vw - 90px);
+        padding: 8px 10px;
+        font-size: .78rem;
+    }
+
+    .recent-overwrite-backdrop {
+        padding: 12px;
+    }
+
+    .recent-overwrite-dialog {
+        max-height: calc(100dvh - 24px);
+        padding: 20px 14px;
+        overflow-y: auto;
+    }
+
+    .recent-overwrite-actions {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+
+    .recent-overwrite-actions button {
+        width: 100%;
+        min-height: 48px;
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .editor-page {
+        --toolbar-height: calc(184px + env(safe-area-inset-bottom));
     }
 
 }

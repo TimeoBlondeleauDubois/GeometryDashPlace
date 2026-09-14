@@ -8,7 +8,7 @@
         @onpointerdown="HandlePointerDown"
         @onpointermove="HandlePointerMove"
         @onpointerup="HandlePointerUp"
-        @onpointercancel="HandlePointerUp"
+        @onpointercancel="HandlePointerCancel"
         @onpointerleave="HandlePointerLeave"
         @onpointerdown:preventDefault="true"
         @onwheel="HandleWheel"
@@ -30,6 +30,9 @@
     private bool _disposed;
     private double _canvasLeft;
     private double _canvasTop;
+    private readonly Dictionary<long, TouchPoint> _touchPointers = [];
+    private bool _isPinching;
+    private double? _pinchDistance;
 
     [CascadingParameter]
     public required EditorSession Editor { get; set; }
@@ -118,20 +121,98 @@
         }
     }
 
-    private void HandlePointerDown(PointerEventArgs eventArgs) =>
-        Editor.BeginPointer(eventArgs.PointerId, eventArgs.Button,
-            ToCanvasX(eventArgs.ClientX), ToCanvasY(eventArgs.ClientY));
+    private void HandlePointerDown(PointerEventArgs eventArgs)
+    {
+        var x = ToCanvasX(eventArgs.ClientX);
+        var y = ToCanvasY(eventArgs.ClientY);
+        if (!IsTouch(eventArgs))
+        {
+            Editor.BeginPointer(eventArgs.PointerId, eventArgs.Button, x, y);
+            return;
+        }
 
-    private void HandlePointerMove(PointerEventArgs eventArgs) =>
-        Editor.MovePointer(eventArgs.PointerId,
-            ToCanvasX(eventArgs.ClientX), ToCanvasY(eventArgs.ClientY));
+        _touchPointers[eventArgs.PointerId] = new TouchPoint(x, y);
+        if (_touchPointers.Count == 1)
+        {
+            _isPinching = false;
+            Editor.BeginPointer(eventArgs.PointerId, eventArgs.Button, x, y);
+            return;
+        }
+
+        if (_touchPointers.Count == 2)
+        {
+            var first = _touchPointers.First(pair => pair.Key != eventArgs.PointerId);
+            Editor.EndPointer(first.Key, first.Value.X, first.Value.Y, allowCellClick: false);
+            _isPinching = true;
+            _pinchDistance = PinchDistance();
+        }
+    }
+
+    private void HandlePointerMove(PointerEventArgs eventArgs)
+    {
+        var x = ToCanvasX(eventArgs.ClientX);
+        var y = ToCanvasY(eventArgs.ClientY);
+        if (!IsTouch(eventArgs) || !_touchPointers.ContainsKey(eventArgs.PointerId))
+        {
+            Editor.MovePointer(eventArgs.PointerId, x, y);
+            return;
+        }
+
+        _touchPointers[eventArgs.PointerId] = new TouchPoint(x, y);
+        if (!_isPinching || _touchPointers.Count < 2)
+        {
+            Editor.MovePointer(eventArgs.PointerId, x, y);
+            return;
+        }
+
+        var distance = PinchDistance();
+        if (_pinchDistance is > 0 && distance > 0)
+        {
+            var factor = Math.Clamp(distance / _pinchDistance.Value, 0.82, 1.22);
+            Editor.ZoomAt(factor, PinchCenterX());
+        }
+        _pinchDistance = distance;
+    }
 
     private void HandlePointerUp(PointerEventArgs eventArgs) =>
-        Editor.EndPointer(eventArgs.PointerId,
-            ToCanvasX(eventArgs.ClientX), ToCanvasY(eventArgs.ClientY),
-            allowCellClick: !ReadOnly);
+        EndPointer(eventArgs, allowCellClick: !ReadOnly);
 
-    private void HandlePointerLeave() => Editor.LeavePointer();
+    private void HandlePointerCancel(PointerEventArgs eventArgs) =>
+        EndPointer(eventArgs, allowCellClick: false);
+
+    private void EndPointer(PointerEventArgs eventArgs, bool allowCellClick)
+    {
+        var x = ToCanvasX(eventArgs.ClientX);
+        var y = ToCanvasY(eventArgs.ClientY);
+        if (!IsTouch(eventArgs))
+        {
+            Editor.EndPointer(eventArgs.PointerId, x, y, allowCellClick);
+            return;
+        }
+
+        if (!_isPinching)
+        {
+            Editor.EndPointer(eventArgs.PointerId, x, y, allowCellClick);
+        }
+
+        _touchPointers.Remove(eventArgs.PointerId);
+        if (_touchPointers.Count < 2)
+        {
+            _pinchDistance = null;
+        }
+        if (_touchPointers.Count == 0)
+        {
+            _isPinching = false;
+        }
+    }
+
+    private void HandlePointerLeave(PointerEventArgs eventArgs)
+    {
+        if (!IsTouch(eventArgs))
+        {
+            Editor.LeavePointer();
+        }
+    }
 
     private void HandleWheel(WheelEventArgs eventArgs)
     {
@@ -143,4 +224,21 @@
 
     private double ToCanvasX(double clientX) => clientX - _canvasLeft;
     private double ToCanvasY(double clientY) => clientY - _canvasTop;
+
+    private double PinchDistance()
+    {
+        var points = _touchPointers.Values.Take(2).ToArray();
+        return points.Length < 2
+            ? 0
+            : Math.Sqrt(
+                Math.Pow(points[1].X - points[0].X, 2) +
+                Math.Pow(points[1].Y - points[0].Y, 2));
+    }
+
+    private double PinchCenterX() => _touchPointers.Values.Take(2).Average(point => point.X);
+
+    private static bool IsTouch(PointerEventArgs eventArgs) =>
+        string.Equals(eventArgs.PointerType, "touch", StringComparison.OrdinalIgnoreCase);
+
+    private readonly record struct TouchPoint(double X, double Y);
 }

@@ -3,6 +3,7 @@
     z-index: 1;
     box-sizing: border-box;
     min-height: 100vh;
+    min-height: 100dvh;
     padding: clamp(22px, 5vh, 64px) clamp(18px, 5vw, 84px) 72px;
     overflow-x: hidden;
     background: transparent;
@@ -344,11 +345,18 @@
     }
 
     .events-header-actions {
+        width: 100%;
         flex-wrap: wrap;
         justify-content: center;
     }
 
+    .events-live-button,
+    .event-card-action {
+        min-height: 46px;
+    }
+
     .events-page {
+        padding-top: calc(72px + env(safe-area-inset-top));
         padding-right: 14px;
         padding-left: 14px;
     }

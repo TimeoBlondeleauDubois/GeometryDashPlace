@@ -67,13 +67,19 @@
 
 @media (max-width: 760px) {
     .delete-selection-button {
-        width: 68px;
+        width: 52px;
         border-radius: 7px;
         box-shadow: 0 3px 0 rgb(0 0 0 / 58%);
         font-size: 0.61rem;
     }
 
     .delete-selection-label {
-        transform: scale(0.72);
+        transform: scale(0.66);
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .delete-selection-button {
+        width: 46px;
     }
 }

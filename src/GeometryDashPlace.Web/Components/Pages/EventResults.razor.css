@@ -3,6 +3,7 @@
     z-index: 1;
     box-sizing: border-box;
     min-height: 100vh;
+    min-height: 100dvh;
     padding: clamp(24px, 5vh, 58px) clamp(16px, 5vw, 72px) 72px;
     background: transparent;
     color: white;
@@ -243,13 +244,28 @@
 }
 
 @media (max-width: 580px) {
+    .results-page {
+        padding-top: calc(72px + env(safe-area-inset-top));
+        padding-right: 12px;
+        padding-left: 12px;
+    }
+
     .results-header {
         align-items: flex-start;
         flex-direction: column;
     }
 
     .results-navigation {
+        width: 100%;
         justify-content: flex-start;
+    }
+
+    .results-button {
+        min-height: 46px;
+    }
+
+    .results-panel {
+        padding: 14px;
     }
 
     .results-summary,

@@ -44,7 +44,7 @@
 
 @media (max-width: 760px) {
     .deselect-area {
-        right: 60px;
+        right: calc(60px + env(safe-area-inset-right));
     }
 
     .deselect-button {

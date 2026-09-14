@@ -199,16 +199,22 @@
 
 @media (max-width: 760px) {
     .site-menu-toggle {
-        top: 7px;
-        left: 7px;
-        width: 42px;
-        height: 39px;
-        padding: 7px 8px;
+        top: calc(7px + env(safe-area-inset-top));
+        left: calc(7px + env(safe-area-inset-left));
+        width: 46px;
+        height: 44px;
+        padding: 8px 9px;
     }
 
     .site-account-panel {
-        top: 54px;
-        left: 7px;
-        max-width: calc(100vw - 14px);
+        top: calc(59px + env(safe-area-inset-top));
+        left: calc(7px + env(safe-area-inset-left));
+        width: min(320px, calc(100vw - 14px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+        max-height: calc(100dvh - 68px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        overflow-y: auto;
+    }
+
+    .site-menu-action {
+        min-height: 44px;
     }
 }

@@ -42,3 +42,26 @@
     height: 100%;
     object-fit: contain;
 }
+
+@media (max-width: 760px) {
+    .zoom-controls {
+        left: calc(8px + env(safe-area-inset-left));
+        gap: 8px;
+    }
+
+    .zoom-controls button {
+        width: 48px;
+        height: 48px;
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .zoom-controls {
+        gap: 5px;
+    }
+
+    .zoom-controls button {
+        width: 42px;
+        height: 42px;
+    }
+}
