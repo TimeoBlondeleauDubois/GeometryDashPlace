@@ -329,13 +329,13 @@
 
 @media (max-width: 760px) {
     .history-page {
-        --toolbar-height: 200px;
+        --toolbar-height: calc(220px + env(safe-area-inset-bottom));
     }
 
     .history-header {
-        top: 52px;
-        left: 7px;
-        max-width: calc(100vw - 14px);
+        top: calc(59px + env(safe-area-inset-top));
+        left: calc(7px + env(safe-area-inset-left));
+        max-width: calc(100vw - 14px - env(safe-area-inset-left) - env(safe-area-inset-right));
     }
 
     .history-event-name {
@@ -362,7 +362,7 @@
 
     .history-playback-button {
         min-width: 92px;
-        min-height: 35px;
+        min-height: 44px;
     }
 
     .history-revision-details {
@@ -375,5 +375,11 @@
         flex-basis: 40px;
         width: 40px;
         height: 40px;
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .history-page {
+        --toolbar-height: calc(190px + env(safe-area-inset-bottom));
     }
 }

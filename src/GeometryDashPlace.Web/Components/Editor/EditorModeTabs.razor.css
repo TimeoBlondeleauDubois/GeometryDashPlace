@@ -79,18 +79,31 @@
 
 @media (max-width: 760px) {
     .editor-mode-tabs {
-        left: 7px;
-        gap: 7px;
+        top: auto;
+        bottom: calc(8px + env(safe-area-inset-bottom));
+        left: 8px;
+        gap: 6px;
+        transform: none;
     }
 
     .editor-mode-tabs button {
-        width: 68px;
+        width: 52px;
         border-radius: 7px;
         box-shadow: 0 3px 0 rgb(0 0 0 / 58%);
         font-size: 0.68rem;
     }
 
     .mode-label {
-        transform: scale(0.7);
+        transform: scale(0.66);
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .editor-mode-tabs {
+        bottom: calc(6px + env(safe-area-inset-bottom));
+    }
+
+    .editor-mode-tabs button {
+        width: 46px;
     }
 }

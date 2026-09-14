@@ -67,15 +67,18 @@
 
 @media (max-width: 760px) {
     .confirm-placement-area {
+        top: auto;
+        bottom: calc(8px + env(safe-area-inset-bottom));
         right: 5px;
-        min-width: 48px;
+        min-width: 52px;
         padding-left: 7px;
         gap: 2px;
+        transform: none;
     }
 
     .confirm-placement-button {
-        width: 44px;
-        height: 44px;
+        width: 52px;
+        height: 52px;
     }
 
     .confirm-placement-button img {
@@ -83,7 +86,17 @@
     }
 
     .confirm-placement-area small {
-        font-size: 0.52rem;
-        transform: scale(0.65);
+        display: none;
+    }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+    .confirm-placement-area {
+        bottom: calc(6px + env(safe-area-inset-bottom));
+    }
+
+    .confirm-placement-button {
+        width: 46px;
+        height: 46px;
     }
 }

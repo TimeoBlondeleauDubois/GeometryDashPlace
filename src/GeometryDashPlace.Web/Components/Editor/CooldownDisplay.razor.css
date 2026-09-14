@@ -41,8 +41,8 @@
 
 @media (max-width: 760px) {
     .cooldown-display {
-        top: 78px;
-        right: 10px;
+        top: calc(62px + env(safe-area-inset-top));
+        right: calc(10px + env(safe-area-inset-right));
         min-width: 110px;
         padding: 5px 10px 6px;
     }

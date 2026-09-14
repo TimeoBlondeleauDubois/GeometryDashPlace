@@ -49,7 +49,7 @@
 
 @media (max-width: 760px) {
     .edit-object-area {
-        right: 8px;
+        right: calc(8px + env(safe-area-inset-right));
     }
 
     .edit-object-button {
