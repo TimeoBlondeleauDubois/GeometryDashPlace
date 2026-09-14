@@ -22,4 +22,5 @@ public sealed class LevelEventEntity
     public ICollection<LevelCellEntity> Cells { get; set; } = [];
     public ICollection<PlacementHistoryEntity> PlacementHistory { get; set; } = [];
     public ICollection<LevelSnapshotEntity> Snapshots { get; set; } = [];
+    public ICollection<PlayerBadgeEntity> Badges { get; set; } = [];
 }
